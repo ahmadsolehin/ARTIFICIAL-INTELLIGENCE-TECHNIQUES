@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>PRNG.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.util</a> &gt; <span class="el_source">PRNG.java</span></div><h1>PRNG.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.util;
+
+import java.util.Random;
+
+import org.jenetics.internal.math.random;
+
+/**
+ * Abstract {@code Random} class with additional &lt;i&gt;next&lt;/i&gt; random number
+ * methods.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.2
+ * @version 2.0
+ */
+abstract class PRNG extends Random {
+
+	private static final long serialVersionUID = 1L;
+
+	/**
+	 * Create a new {@code PRNG} instance with the given {@code seed}.
+	 *
+	 * @param seed the seed of the new {@code PRNG} instance.
+	 */
+	protected PRNG(final long seed) {
+<span class="fc" id="L44">		super(seed);</span>
+<span class="fc" id="L45">	}</span>
+
+	/**
+	 * Create a new {@code PRNG} instance with a seed created with the
+	 * {@link org.jenetics.internal.math.random#seed()} value.
+	 */
+	protected PRNG() {
+<span class="nc" id="L52">		this(random.seed());</span>
+<span class="nc" id="L53">	}</span>
+
+	/**
+	 * Returns a pseudorandom, uniformly distributed int value between min and
+	 * max (end points included).
+	 *
+	 * @param min lower bound for generated integer (inclusively)
+	 * @param max upper bound for generated integer (inclusively)
+	 * @return a random integer greater than or equal to {@code min} and less
+	 *         than or equal to {@code max}
+	 * @throws IllegalArgumentException if {@code min &gt;= max}
+	 *
+	 * @see org.jenetics.internal.math.random#nextInt(java.util.Random, int, int)
+	 */
+	public int nextInt(final int min, final int max) {
+<span class="fc" id="L68">		return random.nextInt(this, min, max);</span>
+	}
+
+	/**
+	 * Returns a pseudorandom, uniformly distributed int value between min
+	 * and max (end points included).
+	 *
+	 * @param min lower bound for generated long integer (inclusively)
+	 * @param max upper bound for generated long integer (inclusively)
+	 * @return a random long integer greater than or equal to {@code min}
+	 *         and less than or equal to {@code max}
+	 * @throws IllegalArgumentException if {@code min &gt;= max}
+	 *
+	 * @see org.jenetics.internal.math.random#nextLong(java.util.Random, long, long)
+	 */
+	public long nextLong(final long min, final long max) {
+<span class="fc" id="L84">		return random.nextLong(this, min, max);</span>
+	}
+
+	/**
+	 * Returns a pseudorandom, uniformly distributed int value between 0
+	 * (inclusive) and the specified value (exclusive), drawn from the given
+	 * random number generator's sequence.
+	 *
+	 * @param n the bound on the random number to be returned. Must be
+	 *        positive.
+	 * @return the next pseudorandom, uniformly distributed int value
+	 *         between 0 (inclusive) and n (exclusive) from the given random
+	 *         number generator's sequence
+	 * @throws IllegalArgumentException if n is smaller than 1.
+	 *
+	 * @see org.jenetics.internal.math.random#nextLong(java.util.Random, long)
+	 */
+	public long nextLong(final long n) {
+<span class="fc" id="L102">		return random.nextLong(this, n);</span>
+	}
+
+	/**
+	 * Returns a pseudorandom, uniformly distributed double value between
+	 * min (inclusively) and max (exclusively).
+	 *
+	 * @param min lower bound for generated float value (inclusively)
+	 * @param max upper bound for generated float value (exclusively)
+	 * @return a random float greater than or equal to {@code min} and less
+	 *         than to {@code max}
+	 *
+	 * @see org.jenetics.internal.math.random#nextFloat(java.util.Random, float, float)
+	 */
+	public float nextFloat(final float min, final float max) {
+<span class="fc" id="L117">		return random.nextFloat(this, min, max);</span>
+	}
+
+	/**
+	 * Returns a pseudorandom, uniformly distributed double value between
+	 * min (inclusively) and max (exclusively).
+	 *
+	 * @param min lower bound for generated double value (inclusively)
+	 * @param max upper bound for generated double value (exclusively)
+	 * @return a random double greater than or equal to {@code min} and less
+	 *         than to {@code max}
+	 *
+	 * @see org.jenetics.internal.math.random#nextDouble(java.util.Random, double, double)
+	 */
+	public double nextDouble(final double min, final double max) {
+<span class="fc" id="L132">		return random.nextDouble(this, min, max);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

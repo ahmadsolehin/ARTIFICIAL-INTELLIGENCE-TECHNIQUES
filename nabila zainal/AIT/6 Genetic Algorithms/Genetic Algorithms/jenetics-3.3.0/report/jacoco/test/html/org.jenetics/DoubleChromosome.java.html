@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>DoubleChromosome.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">DoubleChromosome.java</span></div><h1>DoubleChromosome.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static org.jenetics.util.ISeq.toISeq;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.List;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+import javax.xml.bind.annotation.adapters.XmlAdapter;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+
+import org.jenetics.internal.util.Equality;
+import org.jenetics.internal.util.Hash;
+
+import org.jenetics.util.DoubleRange;
+import org.jenetics.util.ISeq;
+import org.jenetics.util.MSeq;
+
+/**
+ * Numeric chromosome implementation which holds 64 bit floating point numbers.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.6
+ * @version 3.2
+ */
+@XmlJavaTypeAdapter(DoubleChromosome.Model.Adapter.class)
+public class DoubleChromosome
+	extends AbstractBoundedChromosome&lt;Double, DoubleGene&gt;
+	implements
+		NumericChromosome&lt;Double, DoubleGene&gt;,
+		Serializable
+{
+	private static final long serialVersionUID = 1L;
+
+
+	protected DoubleChromosome(final ISeq&lt;DoubleGene&gt; genes) {
+<span class="fc" id="L64">		super(genes);</span>
+<span class="fc" id="L65">	}</span>
+
+	/**
+	 * Create a new random {@code DoubleChromosome}.
+	 *
+	 * @param min the min value of the {@link DoubleGene}s (inclusively).
+	 * @param max the max value of the {@link DoubleGene}s (exclusively).
+	 * @param length the length of the chromosome.
+	 * @throws NullPointerException if one of the arguments is {@code null}.
+	 */
+	public DoubleChromosome(final Double min,final Double max,final int length) {
+<span class="fc" id="L76">		this(DoubleGene.seq(min, max, length));</span>
+<span class="fc" id="L77">		_valid = true;</span>
+<span class="fc" id="L78">	}</span>
+
+	/**
+	 * Create a new random {@code DoubleChromosome} of length one.
+	 *
+	 * @param min the minimal value of this chromosome (inclusively).
+	 * @param max the maximal value of this chromosome (exclusively).
+	 * @throws NullPointerException if one of the arguments is {@code null}.
+	 */
+	public DoubleChromosome(final Double min, final Double max) {
+<span class="fc" id="L88">		this(min, max, 1);</span>
+<span class="fc" id="L89">	}</span>
+
+	/**
+	 * Returns an double array containing all of the elements in this chromosome
+	 * in proper sequence.  If the chromosome fits in the specified array, it is
+	 * returned therein. Otherwise, a new array is allocated with the length of
+	 * this chromosome.
+	 *
+	 * @since 3.0
+	 *
+	 * @param array the array into which the elements of this chromosomes are to
+	 *        be stored, if it is big enough; otherwise, a new array is
+	 *        allocated for this purpose.
+	 * @return an array containing the elements of this chromosome
+	 * @throws NullPointerException if the given {@code array} is {@code null}
+	 */
+	public double[] toArray(final double[] array) {
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">		final double[] a = array.length &gt;= length() ?</span>
+<span class="pc" id="L107">			array : new double[length()];</span>
+
+<span class="fc bfc" id="L109" title="All 2 branches covered.">		for (int i = length(); --i &gt;= 0;) {</span>
+<span class="fc" id="L110">			a[i] = doubleValue(i);</span>
+		}
+
+<span class="fc" id="L113">		return a;</span>
+	}
+
+	/**
+	 * Returns an double array containing all of the elements in this chromosome
+	 * in proper sequence.
+	 *
+	 * @since 3.0
+	 *
+	 * @return an array containing the elements of this chromosome
+	 */
+	public double[] toArray() {
+<span class="fc" id="L125">		return toArray(new double[length()]);</span>
+	}
+
+	/**
+	 * Create a new {@code DoubleChromosome} with the given genes.
+	 *
+	 * @param genes the genes of the chromosome.
+	 * @return a new chromosome with the given genes.
+	 * @throws IllegalArgumentException if the length of the genes array is
+	 *         empty.
+	 */
+	public static DoubleChromosome of(final DoubleGene... genes) {
+<span class="fc" id="L137">		return new DoubleChromosome(ISeq.of(genes));</span>
+	}
+
+	/**
+	 * Create a new random {@code DoubleChromosome}.
+	 *
+	 * @param min the min value of the {@link DoubleGene}s (inclusively).
+	 * @param max the max value of the {@link DoubleGene}s (exclusively).
+	 * @param length the length of the chromosome.
+	 * @return a new {@code DoubleChromosome} with the given parameter
+	 */
+	public static DoubleChromosome of(final double min, double max, final int length) {
+<span class="fc" id="L149">		return new DoubleChromosome(min, max, length);</span>
+	}
+
+	/**
+	 * Create a new random {@code DoubleChromosome}.
+	 *
+	 * @since 3.2
+	 *
+	 * @param range the integer range of the chromosome.
+	 * @param length the length of the chromosome.
+	 * @return a new random {@code DoubleChromosome}
+	 * @throws NullPointerException if the given {@code range} is {@code null}
+	 */
+	public static DoubleChromosome of(final DoubleRange range, final int length) {
+<span class="fc" id="L163">		return new DoubleChromosome(range.getMin(), range.getMax(), length);</span>
+	}
+
+	/**
+	 * Create a new random {@code DoubleChromosome} of length one.
+	 *
+	 * @param min the minimal value of this chromosome (inclusively).
+	 * @param max the maximal value of this chromosome (exclusively).
+	 * @return a new {@code DoubleChromosome} with the given parameter
+	 */
+	public static DoubleChromosome of(final double min, final double max) {
+<span class="fc" id="L174">		return new DoubleChromosome(min, max);</span>
+	}
+
+	/**
+	 * Create a new random {@code DoubleChromosome} of length one.
+	 *
+	 * @since 3.2
+	 *
+	 * @param range the double range of the chromosome.
+	 * @return a new random {@code DoubleChromosome} of length one
+	 * @throws NullPointerException if the given {@code range} is {@code null}
+	 */
+	public static DoubleChromosome of(final DoubleRange range) {
+<span class="fc" id="L187">		return new DoubleChromosome(range.getMin(), range.getMax());</span>
+	}
+
+	@Override
+	public DoubleChromosome newInstance(final ISeq&lt;DoubleGene&gt; genes) {
+<span class="fc" id="L192">		return new DoubleChromosome(genes);</span>
+	}
+
+	@Override
+	public DoubleChromosome newInstance() {
+<span class="fc" id="L197">		return new DoubleChromosome(_min, _max, length());</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L202">		return Hash.of(getClass()).and(super.hashCode()).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc" id="L207">		return Equality.of(this, obj).test(super::equals);</span>
+	}
+
+
+	/* *************************************************************************
+	 *  Java object serialization
+	 * ************************************************************************/
+
+	private void writeObject(final ObjectOutputStream out)
+		throws IOException
+	{
+<span class="fc" id="L218">		out.defaultWriteObject();</span>
+
+<span class="fc" id="L220">		out.writeInt(length());</span>
+<span class="fc" id="L221">		out.writeDouble(_min.doubleValue());</span>
+<span class="fc" id="L222">		out.writeDouble(_max.doubleValue());</span>
+
+<span class="fc bfc" id="L224" title="All 2 branches covered.">		for (DoubleGene gene : _genes) {</span>
+<span class="fc" id="L225">			out.writeDouble(gene.getAllele().doubleValue());</span>
+<span class="fc" id="L226">		}</span>
+<span class="fc" id="L227">	}</span>
+
+	private void readObject(final ObjectInputStream in)
+		throws IOException, ClassNotFoundException
+	{
+<span class="fc" id="L232">		in.defaultReadObject();</span>
+
+<span class="fc" id="L234">		final MSeq&lt;DoubleGene&gt; genes = MSeq.ofLength(in.readInt());</span>
+<span class="fc" id="L235">		_min = in.readDouble();</span>
+<span class="fc" id="L236">		_max = in.readDouble();</span>
+
+<span class="fc bfc" id="L238" title="All 2 branches covered.">		for (int i = 0; i &lt; genes.length(); ++i) {</span>
+<span class="fc" id="L239">			genes.set(i, new DoubleGene(in.readDouble(), _min, _max));</span>
+		}
+
+<span class="fc" id="L242">		_genes = genes.toISeq();</span>
+<span class="fc" id="L243">	}</span>
+
+	/* *************************************************************************
+	 *  JAXB object serialization
+	 * ************************************************************************/
+
+	@XmlRootElement(name = &quot;double-chromosome&quot;)
+	@XmlType(name = &quot;org.jenetics.DoubleChromosome&quot;)
+	@XmlAccessorType(XmlAccessType.FIELD)
+<span class="fc" id="L252">	final static class Model {</span>
+
+		@XmlAttribute(name = &quot;length&quot;, required = true)
+		public int length;
+
+		@XmlAttribute(name = &quot;min&quot;, required = true)
+		public double min;
+
+		@XmlAttribute(name = &quot;max&quot;, required = true)
+		public double max;
+
+		@XmlElement(name = &quot;allele&quot;, required = true, nillable = false)
+		public List&lt;Double&gt; values;
+
+<span class="fc" id="L266">		public final static class Adapter</span>
+			extends XmlAdapter&lt;Model, DoubleChromosome&gt;
+		{
+			@Override
+			public Model marshal(final DoubleChromosome c) {
+<span class="nc" id="L271">				final Model m = new Model();</span>
+<span class="nc" id="L272">				m.length = c.length();</span>
+<span class="nc" id="L273">				m.min = c._min;</span>
+<span class="nc" id="L274">				m.max = c._max;</span>
+<span class="nc" id="L275">				m.values = c.toSeq().map(DoubleGene::getAllele).asList();</span>
+<span class="nc" id="L276">				return m;</span>
+			}
+
+			@Override
+			public DoubleChromosome unmarshal(final Model model) {
+<span class="fc" id="L281">				final Double min = model.min;</span>
+<span class="fc" id="L282">				final Double max = model.max;</span>
+<span class="fc" id="L283">				return new DoubleChromosome(</span>
+<span class="fc" id="L284">					model.values.stream()</span>
+<span class="fc" id="L285">						.map(value -&gt; new DoubleGene(value, min, max))</span>
+<span class="fc" id="L286">						.collect(toISeq())</span>
+				);
+			}
+		}
+
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>RandomRegistry.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.util</a> &gt; <span class="el_source">RandomRegistry.java</span></div><h1>RandomRegistry.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.util;
+
+import static java.util.Objects.requireNonNull;
+
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+import org.jenetics.internal.util.require;
+
+/**
+ * This class holds the {@link Random} engine used for the GA. The
+ * {@code RandomRegistry} is thread safe. The registry is initialized with the
+ * {@link ThreadLocalRandom} PRNG, which has a much better performance behavior
+ * than an instance of the {@code Random} class. Alternatively, you can
+ * initialize the registry with one of the PRNG, which are being part of the
+ * library.
+ * &lt;p&gt;
+ *
+ * &lt;b&gt;Setup of a &lt;i&gt;global&lt;/i&gt; PRNG&lt;/b&gt;
+ *
+ * &lt;pre&gt;{@code
+ * public class GA {
+ *     public static void main(final String[] args) {
+ *         // Initialize the registry with a ThreadLocal instance of the PRGN.
+ *         // This is the preferred way setting a new PRGN.
+ *         RandomRegistry.setRandom(new LCG64ShiftRandom.ThreadLocal());
+ *
+ *         // Using a thread safe variant of the PRGN. Leads to slower PRN
+ *         // generation, but gives you the possibility to set a PRNG seed.
+ *         RandomRegistry.setRandom(new LCG64ShiftRandom.ThreadSafe(1234));
+ *
+ *         ...
+ *         final EvolutionResult&lt;DoubleGene, Double&gt; result = stream
+ *             .limit(100)
+ *             .collect(toBestEvolutionResult());
+ *     }
+ * }
+ * }&lt;/pre&gt;
+ * &lt;p&gt;
+ *
+ * &lt;b&gt;Setup of a &lt;i&gt;local&lt;/i&gt; PRNG&lt;/b&gt;&lt;br&gt;
+ *
+ * You can temporarily (and locally) change the implementation of the PRNG. E.g.
+ * for initialize the engine stream with the same initial population.
+ *
+ * &lt;pre&gt;{@code
+ * public class GA {
+ *     public static void main(final String[] args) {
+ *         // Create a reproducible list of genotypes.
+ *         final List&lt;Genotype&lt;DoubleGene&gt;&gt; genotypes =
+ *             with(new LCG64ShiftRandom(123), r -&gt;
+ *                 Genotype.of(DoubleChromosome.of(0, 10)).instances()
+ *                     .limit(50)
+ *                     .collect(toList())
+ *             );
+ *
+ *         final Engine&lt;DoubleGene, Double&gt; engine = ...;
+ *         final EvolutionResult&lt;DoubleGene, Double&gt; result = engine
+ *              // Initialize the evolution stream with the given genotypes.
+ *             .stream(genotypes)
+ *             .limit(100)
+ *             .collect(toBestEvolutionResult());
+ *     }
+ * }
+ * }&lt;/pre&gt;
+ * &lt;p&gt;
+ *
+ * @see Random
+ * @see ThreadLocalRandom
+ * @see LCG64ShiftRandom
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.0
+ */
+public final class RandomRegistry {
+<span class="nc" id="L99">	private RandomRegistry() {require.noInstance();}</span>
+
+<span class="fc" id="L101">	private static final Context&lt;Supplier&lt;Random&gt;&gt; CONTEXT =</span>
+		new Context&lt;&gt;(ThreadLocalRandom::current);
+
+	/**
+	 * Return the global {@link Random} object.
+	 *
+	 * @return the global {@link Random} object.
+	 */
+	public static Random getRandom() {
+<span class="fc" id="L110">		return CONTEXT.get().get();</span>
+	}
+
+	static Random random() {
+<span class="nc" id="L114">		return CONTEXT.get().get();</span>
+	}
+
+	/**
+	 * Set the new global {@link Random} object for the GA. The given
+	 * {@link Random} &lt;b&gt;must&lt;/b&gt; be thread safe, which is the case for the
+	 * default Java {@code Random} implementation.
+	 * &lt;p&gt;
+	 * Setting a &lt;i&gt;thread-local&lt;/i&gt; random object leads, in general, to a faster
+	 * PRN generation, because the given {@code Random} engine don't have to be
+	 * thread-safe.
+	 *
+	 * @see #setRandom(ThreadLocal)
+	 *
+	 * @param random the new global {@link Random} object for the GA.
+	 * @throws NullPointerException if the {@code random} object is {@code null}.
+	 */
+	public static void setRandom(final Random random) {
+<span class="fc" id="L132">		requireNonNull(random, &quot;Random must not be null.&quot;);</span>
+<span class="fc" id="L133">		CONTEXT.set(() -&gt; random);</span>
+<span class="fc" id="L134">	}</span>
+
+	/**
+	 * Set the new global {@link Random} object for the GA. The given
+	 * {@link Random} don't have be thread safe, because the given
+	 * {@link ThreadLocal} wrapper guarantees thread safety. Setting a
+	 * &lt;i&gt;thread-local&lt;/i&gt; random object leads, in general, to a faster
+	 * PRN generation, when using a non-blocking PRNG. This is the preferred
+	 * way for changing the PRNG.
+	 *
+	 * @param random the thread-local random engine to use.
+	 * @throws NullPointerException if the {@code random} object is {@code null}.
+	 */
+	@SuppressWarnings(&quot;unchecked&quot;)
+	public static void setRandom(final ThreadLocal&lt;? extends Random&gt; random) {
+<span class="fc" id="L149">		requireNonNull(random, &quot;Random must not be null.&quot;);</span>
+<span class="fc" id="L150">		CONTEXT.set(random::get);</span>
+<span class="fc" id="L151">	}</span>
+
+	/**
+	 * Set the random object to it's default value. The &lt;i&gt;default&lt;/i&gt; used PRNG
+	 * is the {@link ThreadLocalRandom} PRNG.
+	 */
+	public static void reset() {
+<span class="fc" id="L158">		CONTEXT.reset();</span>
+<span class="fc" id="L159">	}</span>
+
+	/**
+	 * Executes the consumer code using the given {@code random} engine.
+	 *
+	 * &lt;pre&gt;{@code
+	 * final MSeq&lt;Integer&gt; seq = ...
+	 * using(new Random(123), r -&gt; {
+	 *     seq.shuffle();
+	 * });
+	 * }&lt;/pre&gt;
+	 *
+	 * The example above shuffles the given integer {@code seq} &lt;i&gt;using&lt;/i&gt; the
+	 * given {@code Random(123)} engine.
+	 *
+	 * @since 3.0
+	 *
+	 * @param random the PRNG used within the consumer
+	 * @param consumer the consumer which is executed with the &lt;i&gt;scope&lt;/i&gt; of
+	 *        the given {@code random} engine.
+	 * @param &lt;R&gt; the type of the random engine
+	 * @throws NullPointerException if one of the arguments is {@code null}
+	 */
+	public static &lt;R extends Random&gt; void using(
+		final R random,
+		final Consumer&lt;? super R&gt; consumer
+	) {
+<span class="fc" id="L186">		CONTEXT.with(() -&gt; random, r -&gt; {</span>
+			consumer.accept(random);
+			return null;
+		});
+<span class="fc" id="L190">	}</span>
+
+	/**
+	 * Executes the consumer code using the given {@code random} engine.
+	 *
+	 * &lt;pre&gt;{@code
+	 * final MSeq&lt;Integer&gt; seq = ...
+	 * using(new LCG64ShiftRandom.ThreadLocal(), r -&gt; {
+	 *     seq.shuffle();
+	 * });
+	 * }&lt;/pre&gt;
+	 *
+	 * The example above shuffles the given integer {@code seq} &lt;i&gt;using&lt;/i&gt; the
+	 * given {@code LCG64ShiftRandom.ThreadLocal()} engine.
+	 *
+	 * @since 3.0
+	 *
+	 * @param random the PRNG used within the consumer
+	 * @param consumer the consumer which is executed with the &lt;i&gt;scope&lt;/i&gt; of
+	 *        the given {@code random} engine.
+	 * @param &lt;R&gt; the type of the random engine
+	 * @throws NullPointerException if one of the arguments is {@code null}
+	 */
+	public static &lt;R extends Random&gt; void using(
+		final ThreadLocal&lt;R&gt; random,
+		final Consumer&lt;? super R&gt; consumer
+	) {
+<span class="fc" id="L217">		CONTEXT.with(random::get, r -&gt; {</span>
+			consumer.accept(random.get());
+			return null;
+		});
+<span class="fc" id="L221">	}</span>
+
+	/**
+	 * Opens a new {@code Scope} with the given random engine and executes the
+	 * given function within it. The following example shows how to create a
+	 * reproducible list of genotypes:
+	 * &lt;pre&gt;{@code
+	 * final List&lt;Genotype&lt;DoubleGene&gt;&gt; genotypes =
+	 *     with(new LCG64ShiftRandom(123), r -&gt;
+	 *         Genotype.of(DoubleChromosome.of(0, 10)).instances()
+	 *            .limit(50)
+	 *            .collect(toList())
+	 *     );
+	 * }&lt;/pre&gt;
+	 *
+	 * @since 3.0
+	 *
+	 * @param &lt;R&gt; the type of the random engine
+	 * @param &lt;T&gt; the function return type
+	 * @param random the PRNG used for the opened scope
+	 * @param function the function to apply within the random scope
+	 * @return the object returned by the given function
+	 * @throws NullPointerException if one of the arguments is {@code null}
+	 */
+	public static &lt;R extends Random, T&gt; T with(
+		final R random,
+		final Function&lt;? super R, ? extends T&gt; function
+	) {
+<span class="fc" id="L249">		return CONTEXT.with(() -&gt; random, s -&gt; function.apply(random));</span>
+	}
+
+	/**
+	 * Opens a new {@code Scope} with the given random engine and executes the
+	 * given function within it. The following example shows how to create a
+	 * reproducible list of genotypes:
+	 * &lt;pre&gt;{@code
+	 * final List&lt;Genotype&lt;DoubleGene&gt;&gt; genotypes =
+	 *     with(new LCG64ShiftRandom.ThreadLocal(), random -&gt;
+	 *         Genotype.of(DoubleChromosome.of(0, 10)).instances()
+	 *            .limit(50)
+	 *            .collect(toList())
+	 *     );
+	 * }&lt;/pre&gt;
+	 *
+	 * @since 3.0
+	 *
+	 * @param &lt;R&gt; the type of the random engine
+	 * @param &lt;T&gt; the function return type
+	 * @param random the PRNG used for the opened scope
+	 * @param function the function to apply within the random scope
+	 * @return the object returned by the given function
+	 * @throws NullPointerException if one of the arguments is {@code null}.
+	 */
+	public static &lt;R extends Random, T&gt; T with(
+		final ThreadLocal&lt;R&gt; random,
+		final Function&lt;? super R, ? extends T&gt; function
+	) {
+<span class="nc" id="L278">		return CONTEXT.with(random::get, s -&gt; function.apply(random.get()));</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

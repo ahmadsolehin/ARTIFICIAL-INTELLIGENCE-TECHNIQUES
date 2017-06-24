@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>CompositeCodec.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.engine</a> &gt; <span class="el_source">CompositeCodec.java</span></div><h1>CompositeCodec.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.engine;
+
+import static java.util.Objects.requireNonNull;
+
+import java.util.function.Function;
+
+import org.jenetics.Chromosome;
+import org.jenetics.Gene;
+import org.jenetics.Genotype;
+import org.jenetics.util.Factory;
+import org.jenetics.util.ISeq;
+
+/**
+ * Composites a list of codecs into one {@code Codec} class.
+ *
+ * @param &lt;G&gt; the gene type
+ * @param &lt;T&gt; the argument type of the compound codec
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @version 3.3
+ * @since 3.3
+ */
+final class CompositeCodec&lt;T, G extends Gene&lt;?, G&gt;&gt; implements Codec&lt;T, G&gt; {
+
+	private final ISeq&lt;? extends Codec&lt;?, G&gt;&gt; _codecs;
+	private final Function&lt;? super Object[], ? extends T&gt; _decoder;
+
+	private final int[] _lengths;
+	private final Genotype&lt;G&gt; _encoding;
+
+	/**
+	 * Combines the given {@code codecs} into one codec. This lets you divide
+	 * a problem into sub problems and combine them again.
+	 *
+	 * @param codecs the {@code Codec} sequence of the sub-problems
+	 * @param decoder the decoder which combines the argument types from the
+	 *        given given codecs, to the argument type of the resulting codec.
+	 * @throws NullPointerException if one of the arguments is {@code null}
+	 */
+	CompositeCodec(
+		final ISeq&lt;? extends Codec&lt;?, G&gt;&gt; codecs,
+		final Function&lt;? super Object[], ? extends T&gt; decoder
+<span class="fc" id="L62">	) {</span>
+<span class="fc" id="L63">		_codecs = requireNonNull(codecs);</span>
+<span class="fc" id="L64">		_decoder = requireNonNull(decoder);</span>
+
+<span class="fc" id="L66">		final ISeq&lt;Genotype&lt;G&gt;&gt; genotypes = _codecs</span>
+<span class="fc" id="L67">			.map(c -&gt; c.encoding() instanceof Genotype&lt;?&gt;</span>
+				? (Genotype&lt;G&gt;)c.encoding()
+				: c.encoding().newInstance());
+
+<span class="fc" id="L71">		_lengths = genotypes.stream()</span>
+<span class="fc" id="L72">			.mapToInt(Genotype::length)</span>
+<span class="fc" id="L73">			.toArray();</span>
+
+<span class="fc" id="L75">		_encoding = Genotype.of(</span>
+<span class="fc" id="L76">				genotypes.stream()</span>
+<span class="fc" id="L77">					.flatMap(Genotype::stream)</span>
+<span class="fc" id="L78">					.collect(ISeq.toISeq())</span>
+			);
+<span class="fc" id="L80">	}</span>
+
+	@Override
+	public Factory&lt;Genotype&lt;G&gt;&gt; encoding() {
+<span class="fc" id="L84">		return _encoding;</span>
+	}
+
+	@Override
+	public Function&lt;Genotype&lt;G&gt;, T&gt; decoder() {
+<span class="fc" id="L89">		return gt -&gt; _decoder.apply(groups(gt));</span>
+	}
+
+	private Object[] groups(final Genotype&lt;G&gt; genotype) {
+<span class="fc" id="L93">		final Object[] groups = new Object[_codecs.length()];</span>
+<span class="fc" id="L94">		final ISeq&lt;Chromosome&lt;G&gt;&gt; chromosomes = genotype.toSeq();</span>
+
+<span class="fc" id="L96">		int start = 0;</span>
+<span class="fc bfc" id="L97" title="All 2 branches covered.">		for (int i = 0; i &lt; _codecs.length(); ++i) {</span>
+<span class="fc" id="L98">			final int end = start + _lengths[i];</span>
+<span class="fc" id="L99">			final Genotype&lt;G&gt; gt = Genotype.of(chromosomes.subSeq(start, end));</span>
+
+<span class="fc" id="L101">			groups[i] = _codecs.get(i).decoder().apply(gt);</span>
+<span class="fc" id="L102">			start = end;</span>
+		}
+
+<span class="fc" id="L105">		return groups;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

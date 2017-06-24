@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>ArrayProxy.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.collection</a> &gt; <span class="el_source">ArrayProxy.java</span></div><h1>ArrayProxy.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.collection;
+
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+
+import java.io.Serializable;
+import java.lang.ref.WeakReference;
+import java.util.Spliterator;
+import java.util.function.Function;
+import java.util.function.IntFunction;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+
+import org.jenetics.util.Copyable;
+
+/**
+ * Abstraction for an ordered and bounded sequence of elements.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.4
+ * @version 3.1
+ */
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">public abstract class ArrayProxy&lt;T, A, P extends ArrayProxy&lt;T, A, P&gt;&gt;</span>
+	implements
+		Copyable&lt;P&gt;,
+		Serializable
+{
+	private static final long serialVersionUID = 1L;
+
+	/**
+	 * This flag determines if {@code this} represents a sealed proxy instance.
+	 */
+<span class="fc" id="L52">	transient boolean _isSealedProxy = false;</span>
+
+	/**
+	 * Contains all sealed proxies, which share the same {@code array} as
+	 * {@code this} proxy instance.
+	 */
+<span class="fc" id="L58">	transient Stack&lt;WeakReference&lt;ArrayProxy&lt;?, ?, ?&gt;&gt;&gt;</span>
+		_sealedProxies = new Stack&lt;&gt;();
+
+	/**
+	 * Used for creating new array proxy instances.
+	 */
+	private final ArrayProxyFactory&lt;A, P&gt; _proxyFactory;
+
+	/**
+	 * Used for creating copies of the current array.
+	 */
+	private final ArrayCopier&lt;A&gt; _arrayCopier;
+
+	/**
+	 * The actual array, where the elements are stored.
+	 */
+	public A array;
+
+	/**
+	 * The start index of the array view, inclusively.
+	 */
+	public int start;
+
+	/**
+	 * The end index of the array view, exclusively.
+	 */
+	public int end;
+
+	/**
+	 * The actual array length.
+	 */
+	public final int length;
+
+
+
+	/**
+	 * Create a new array proxy.
+	 *
+	 * @param array the array which is wrapped by this proxy
+	 * @param start the start index of the wrapped array (inclusively)
+	 * @param end the end index of the wrapped array (exclusively)
+	 * @param factory factory function for creating new proxy objects
+	 * @param copier array cloning function
+	 * @throws java.lang.NullPointerException if one of the arguments is
+	 *         {@code null}
+	 * @throws java.lang.IllegalArgumentException if the start and end indexes
+	 *         are invalid.
+	 */
+	protected ArrayProxy(
+		final A array,
+		final int start,
+		final int end,
+		final ArrayProxyFactory&lt;A, P&gt; factory,
+		final ArrayCopier&lt;A&gt; copier
+<span class="fc" id="L112">	) {</span>
+<span class="pc bpc" id="L113" title="3 of 6 branches missed.">		if (start &lt; 0 || end &lt; 0 || end &lt; start) {</span>
+<span class="nc" id="L114">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L115">				&quot;Invalid indexes [%d, %d)&quot;, start, end</span>
+			));
+		}
+
+<span class="fc" id="L119">		this.array = requireNonNull(array);</span>
+<span class="fc" id="L120">		this.length = end - start;</span>
+<span class="fc" id="L121">		this.start = start;</span>
+<span class="fc" id="L122">		this.end = end;</span>
+
+<span class="fc" id="L124">		_proxyFactory = requireNonNull(factory);</span>
+<span class="fc" id="L125">		_arrayCopier = requireNonNull(copier);</span>
+<span class="fc" id="L126">	}</span>
+
+	/**
+	 * Return the &lt;i&gt;array&lt;/i&gt; element at the specified, absolute position in
+	 * the {@code ArrayProxy}. The array boundaries are not checked.
+	 *
+	 * @param index absolute index of the element to return
+	 * @return the &lt;i&gt;array&lt;/i&gt; element at the specified absolute position
+	 */
+	public abstract T __get__(final int index);
+
+	/**
+	 * Set the &lt;i&gt;array&lt;/i&gt; element at the specified absolute position in the
+	 * {@code ArrayProxy}. The array boundaries are not checked.
+	 *
+	 * @param index absolute index of the &lt;i&gt;array&lt;/i&gt; element
+	 * @param value the value to set
+	 */
+	public abstract void __set__(final int index, final T value);
+
+	/**
+	 * Return the &lt;i&gt;array&lt;/i&gt; element at the specified position in the
+	 * {@code ArrayProxy}. The array boundaries are not checked.
+	 *
+	 * @param index index of the element to return
+	 * @return the &lt;i&gt;array&lt;/i&gt; element at the specified position
+	 */
+	public final T __get(final int index) {
+<span class="fc" id="L154">		return __get__(index + start);</span>
+	}
+
+	/**
+	 * Set the &lt;i&gt;array&lt;/i&gt; element at the specified position in the
+	 * {@code ArrayProxy}. The array boundaries are not checked.
+	 *
+	 * @param index index of the &lt;i&gt;array&lt;/i&gt; element
+	 * @param value the value to set
+	 */
+	public final void __set(final int index, final T value) {
+<span class="fc" id="L165">		__set__(index + start, value);</span>
+<span class="fc" id="L166">	}</span>
+
+	/**
+	 * Return the &lt;i&gt;array&lt;/i&gt; element at the specified position in the
+	 * {@code ArrayProxy}.
+	 *
+	 * @param index index of the element to return
+	 * @return the &lt;i&gt;array&lt;/i&gt; element at the specified position
+	 * @throws IndexOutOfBoundsException if the index it out of range
+	 *         (index &amp;lt; 0 || index &amp;gt;= _length).
+	 */
+	public final T get(final int index) {
+<span class="fc" id="L178">		checkIndex(index);</span>
+<span class="fc" id="L179">		return __get__(index + start);</span>
+	}
+
+	/**
+	 * Set the &lt;i&gt;array&lt;/i&gt; element at the specified position in the
+	 * {@code ArrayProxy}
+	 *
+	 * @param index the index of the element to set
+	 * @param value the &lt;i&gt;array&lt;/i&gt; element
+	 * @throws IndexOutOfBoundsException if the index it out of range
+	 *         {@code (index &amp;lt; 0 || index &amp;gt;= _length)}.
+	 */
+	public final void set(final int index, final T value) {
+<span class="fc" id="L192">		checkIndex(index);</span>
+<span class="fc" id="L193">		__set__(index + start, value);</span>
+<span class="fc" id="L194">	}</span>
+
+	/**
+	 * Return a new sub {@code ArrayProxy} object with the given start and end
+	 * indexes. The underlying array storage is not copied. With the returned
+	 * sub-array proxy it is possible to &lt;i&gt;write through&lt;/i&gt; the original
+	 * array.
+	 *
+	 * @param from the start index of the new sub {@code ArrayProxy} object,
+	 *        inclusively.
+	 * @param until the end index of the new sub {@code ArrayProxy} object,
+	 *        exclusively.
+	 * @return a new array proxy (view) with the given start and end index.
+	 * @throws IndexOutOfBoundsException if the given indexes are out of bounds.
+	 */
+	public final P slice(final int from, final int until) {
+<span class="fc" id="L210">		final P slice = _proxyFactory.create(array, from + start, until + start);</span>
+<span class="fc" id="L211">		slice._isSealedProxy = _isSealedProxy;</span>
+<span class="fc" id="L212">		slice._sealedProxies = _sealedProxies;</span>
+
+<span class="fc bfc" id="L214" title="All 2 branches covered.">		if (_isSealedProxy) {</span>
+<span class="fc" id="L215">			_sealedProxies.push(new WeakReference&lt;&gt;(slice));</span>
+		}
+
+<span class="fc" id="L218">		return slice;</span>
+	}
+
+	/**
+	 * Return a new sub {@code ArrayProxy} object with the given start index.
+	 * The underlying array storage is not copied. With the returned sub-array
+	 * proxy it is possible to &lt;i&gt;write through&lt;/i&gt; the original array.
+	 *
+	 * @param from the start index of the new sub {@code ArrayProxy} object,
+	 *        inclusively.
+	 * @return a new array proxy (view) with the given start index.
+	 * @throws IndexOutOfBoundsException if the given indexes are out of bounds.
+	 */
+	public final P slice(final int from) {
+<span class="fc" id="L232">		return slice(from, length);</span>
+	}
+
+	/**
+	 * Set the seal flag for this {@code ArrayProxy} instance and return a new
+	 * {@code ArrayProxy} object with an not set &lt;i&gt;seal&lt;/i&gt; flag but with the
+	 * same underlying data structure.
+	 *
+	 * @return a new {@code ArrayProxy} instance; for command chaining.
+	 */
+	public final P seal() {
+<span class="pc bpc" id="L243" title="2 of 4 branches missed.">		assert !_isSealedProxy : &quot;Must not be called on sealed proxies&quot;;</span>
+
+<span class="fc" id="L245">		final P proxy = _proxyFactory.create(array, start, end);</span>
+<span class="fc" id="L246">		proxy._sealedProxies = _sealedProxies;</span>
+<span class="fc" id="L247">		proxy._isSealedProxy = true;</span>
+<span class="fc" id="L248">		_sealedProxies.push(new WeakReference&lt;&gt;(proxy));</span>
+
+<span class="fc" id="L250">		return proxy;</span>
+	}
+
+	/**
+	 * Clone the underlying data structure of this {@code ArrayProxy} if it is
+	 * sealed.
+	 */
+	public final void cloneIfSealed() {
+<span class="pc bpc" id="L258" title="2 of 4 branches missed.">		assert !_isSealedProxy : &quot;Must not be called on sealed proxies&quot;;</span>
+
+<span class="fc bfc" id="L260" title="All 2 branches covered.">		if (_sealedProxies.length &gt; 0) {</span>
+<span class="fc" id="L261">			_sealedProxies.popAll(p -&gt; {</span>
+				final ArrayProxy&lt;?, ?, ?&gt; proxy = p.get();
+				if (proxy != null) {
+					proxy.copyArray();
+				}
+			});
+		}
+<span class="fc" id="L268">	}</span>
+
+	private void copyArray() {
+<span class="pc bpc" id="L271" title="2 of 4 branches missed.">		assert _isSealedProxy : &quot;Must only be called on sealed proxies&quot;;</span>
+
+<span class="fc" id="L273">		array = _arrayCopier.copy(array, start, end);</span>
+<span class="fc" id="L274">		_sealedProxies = new Stack&lt;&gt;();</span>
+<span class="fc" id="L275">		_isSealedProxy = false;</span>
+<span class="fc" id="L276">		start = 0;</span>
+<span class="fc" id="L277">		end = length;</span>
+<span class="fc" id="L278">	}</span>
+
+	/**
+	 * Return a stream with the elements of this {@code ArrayProxy}.
+	 *
+	 * @since 3.0
+	 *
+	 * @return a stream with the elements of this {@code ArrayProxy}
+	 */
+	public Stream&lt;T&gt; stream() {
+<span class="fc" id="L288">		return StreamSupport.stream(spliterator(), false);</span>
+	}
+
+	/**
+	 * Return a parallel stream with the elements of this {@code ArrayProxy}.
+	 *
+	 * @since 3.0
+	 *
+	 * @return a stream with the elements of this {@code ArrayProxy}
+	 */
+	public Stream&lt;T&gt; parallelStream() {
+<span class="nc" id="L299">		return StreamSupport.stream(spliterator(), true);</span>
+	}
+
+	public Spliterator&lt;T&gt; spliterator() {
+<span class="fc" id="L303">		return new ArrayProxySpliterator&lt;&gt;(this);</span>
+	}
+
+	/**
+	 * Swap a given range with a range of the same size with another array.
+	 * Implementations of this class should replace this with a optimized
+	 * version, depending on the underlying data structure.
+	 *
+	 * &lt;pre&gt;
+	 *            from                until
+	 *              |                   |
+	 * this:  +---+---+---+---+---+---+---+---+---+---+---+---+
+	 *              +---------------+
+	 *                          +---------------+
+	 * other: +---+---+---+---+---+---+---+---+---+---+---+---+
+	 *                          |
+	 *                      otherFrom
+	 * &lt;/pre&gt;
+	 *
+	 * @param start the start index of {@code this} range, inclusively.
+	 * @param end the end index of {@code this} range, exclusively.
+	 * @param other the other array to swap the elements with.
+	 * @param otherStart the start index of the {@code other} array.
+	 * @throws IndexOutOfBoundsException if {@code start &gt; end} or
+	 *         if {@code from &lt; 0 || until &gt;= this.length() || otherFrom &lt; 0 ||
+	 *         otherFrom + (until - from) &gt;= other.length()}
+	 */
+	public void swap(
+		final int start,
+		final int end,
+		final ArrayProxy&lt;T, ?, ?&gt; other,
+		final int otherStart
+	) {
+<span class="fc" id="L336">		checkIndex(start, end);</span>
+<span class="fc" id="L337">		other.checkIndex(otherStart, otherStart + (end - start));</span>
+<span class="fc" id="L338">		cloneIfSealed();</span>
+<span class="fc" id="L339">		other.cloneIfSealed();</span>
+
+<span class="fc bfc" id="L341" title="All 2 branches covered.">		for (int i = end - start; --i &gt;= 0;) {</span>
+<span class="fc" id="L342">			final T temp = __get(i + start);</span>
+<span class="fc" id="L343">			__set(i + start, other.__get(otherStart + i));</span>
+<span class="fc" id="L344">			other.__set(otherStart + i, temp);</span>
+<span class="fc" id="L345">		}</span>
+<span class="fc" id="L346">	}</span>
+
+	public final &lt;B&gt; ObjectArrayProxy&lt;B&gt; map(
+		final Function&lt;? super T, ? extends B&gt; mapper
+	) {
+<span class="fc" id="L351">		return map(mapper, ObjectArrayProxy&lt;B&gt;::new);</span>
+	}
+
+	public final &lt;B, P extends ArrayProxy&lt;B, ?, ?&gt;&gt; P map(
+		final Function&lt;? super T, ? extends B&gt; mapper,
+		final IntFunction&lt;P&gt; builder
+	) {
+<span class="fc" id="L358">		final P result = builder.apply(length);</span>
+<span class="pc bpc" id="L359" title="2 of 4 branches missed.">		assert result.length == length;</span>
+
+<span class="fc bfc" id="L361" title="All 2 branches covered.">		for (int i = 0; i &lt; length; ++i) {</span>
+<span class="fc" id="L362">			result.__set__(i, mapper.apply(__get(i)));</span>
+		}
+<span class="fc" id="L364">		return result;</span>
+	}
+
+	@Override
+	public P copy() {
+<span class="fc" id="L369">		return _proxyFactory</span>
+<span class="fc" id="L370">			.create(_arrayCopier.copy(array, start, end), 0, end - start);</span>
+	}
+
+	/**
+	 * Checks the given index.s
+	 *
+	 * @param start the index to check.
+	 * @throws java.lang.ArrayIndexOutOfBoundsException if the given index is
+	 *         not in the valid range.
+	 */
+	protected final void checkIndex(final int start) {
+<span class="fc bfc" id="L381" title="All 4 branches covered.">		if (start &lt; 0 || start &gt;= length) {</span>
+<span class="fc" id="L382">			throw new ArrayIndexOutOfBoundsException(format(</span>
+<span class="fc" id="L383">				&quot;Index %s is out of bounds [0, %s)&quot;, start, length</span>
+			));
+		}
+<span class="fc" id="L386">	}</span>
+
+	/**
+	 * Check the given {@code from} and {@code until} indices.
+	 *
+	 * @param start the start index, inclusively.
+	 * @param end the end index, exclusively.
+	 * @throws java.lang.ArrayIndexOutOfBoundsException if the given index is
+	 *         not in the valid range.
+	 */
+	protected final void checkIndex(final int start, final int end) {
+<span class="fc bfc" id="L397" title="All 2 branches covered.">		if (start &gt; end) {</span>
+<span class="fc" id="L398">			throw new ArrayIndexOutOfBoundsException(format(</span>
+<span class="fc" id="L399">				&quot;fromIndex(%d) &gt; toIndex(%d)&quot;, start, end</span>
+			));
+		}
+<span class="fc bfc" id="L402" title="All 4 branches covered.">		if (start &lt; 0 || end &gt; length) {</span>
+<span class="fc" id="L403">			throw new ArrayIndexOutOfBoundsException(format(</span>
+<span class="fc" id="L404">				&quot;Invalid index range: [%d, %s)&quot;, start, end</span>
+			));
+		}
+<span class="fc" id="L407">	}</span>
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

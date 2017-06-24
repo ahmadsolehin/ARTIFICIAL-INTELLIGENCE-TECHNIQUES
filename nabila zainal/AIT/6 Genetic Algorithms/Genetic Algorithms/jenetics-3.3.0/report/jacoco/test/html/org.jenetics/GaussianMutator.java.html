@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>GaussianMutator.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">GaussianMutator.java</span></div><h1>GaussianMutator.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.lang.String.format;
+import static org.jenetics.internal.math.random.indexes;
+
+import java.util.Random;
+
+import org.jenetics.internal.math.base;
+import org.jenetics.internal.util.Hash;
+
+import org.jenetics.util.MSeq;
+import org.jenetics.util.RandomRegistry;
+
+/**
+ * The GaussianMutator class performs the mutation of a {@link NumericGene}.
+ * This mutator picks a new value based on a Gaussian distribution around the
+ * current value of the gene. The variance of the new value (before clipping to
+ * the allowed gene range) will be
+ * &lt;p&gt;
+ * &lt;img
+ *     src=&quot;doc-files/gaussian-mutator-var.gif&quot;
+ *     alt=&quot;\hat{\sigma }^2 = \left ( \frac{ g_{max} - g_{min} }{4}\right )^2&quot;
+ * &gt;
+ * &lt;/p&gt;
+ * The new value will be cropped to the gene's boundaries.
+ *
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.0
+ */
+public final class GaussianMutator&lt;
+	G extends NumericGene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+	extends Mutator&lt;G, C&gt;
+{
+
+	public GaussianMutator(final double probability) {
+<span class="fc" id="L59">		super(probability);</span>
+<span class="fc" id="L60">	}</span>
+
+	public GaussianMutator() {
+<span class="fc" id="L63">		this(DEFAULT_ALTER_PROBABILITY);</span>
+<span class="fc" id="L64">	}</span>
+
+	@Override
+	protected int mutate(final MSeq&lt;G&gt; genes, final double p) {
+<span class="fc" id="L68">		final Random random = RandomRegistry.getRandom();</span>
+
+<span class="fc" id="L70">		return (int)indexes(random, genes.length(), p)</span>
+<span class="fc" id="L71">			.peek(i -&gt; genes.set(i, mutate(genes.get(i), random)))</span>
+<span class="fc" id="L72">			.count();</span>
+	}
+
+	G mutate(final G gene, final Random random) {
+<span class="fc" id="L76">		final double std =</span>
+<span class="fc" id="L77">			(gene.getMax().doubleValue() - gene.getMin().doubleValue())*0.25;</span>
+
+<span class="fc" id="L79">		return gene.newInstance(base.clamp(</span>
+<span class="fc" id="L80">			random.nextGaussian()*std + gene.doubleValue(),</span>
+<span class="fc" id="L81">			gene.getMin().doubleValue(),</span>
+<span class="fc" id="L82">			gene.getMax().doubleValue()</span>
+		));
+	}
+
+	@Override
+	public int hashCode() {
+<span class="nc" id="L88">		return Hash.of(getClass()).and(super.hashCode()).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="pc bpc" id="L93" title="2 of 4 branches missed.">		return obj instanceof GaussianMutator &amp;&amp; super.equals(obj);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="nc" id="L98">		return format(</span>
+			&quot;%s[p=%f]&quot;,
+<span class="nc" id="L100">			getClass().getSimpleName(),</span>
+<span class="nc" id="L101">			_probability</span>
+		);
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

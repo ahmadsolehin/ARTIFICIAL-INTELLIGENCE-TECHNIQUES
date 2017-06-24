@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>IntegerGene.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">IntegerGene.java</span></div><h1>IntegerGene.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static org.jenetics.internal.math.random.nextInt;
+import static org.jenetics.util.RandomRegistry.getRandom;
+
+import java.io.Serializable;
+import java.util.Random;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+import javax.xml.bind.annotation.XmlValue;
+import javax.xml.bind.annotation.adapters.XmlAdapter;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+
+import org.jenetics.util.ISeq;
+import org.jenetics.util.IntRange;
+import org.jenetics.util.MSeq;
+import org.jenetics.util.Mean;
+
+/**
+ * NumericGene implementation which holds a 32 bit integer number.
+ *
+ * &lt;p&gt;This is a &lt;a href=&quot;https://docs.oracle.com/javase/8/docs/api/java/lang/doc-files/ValueBased.html&quot;&gt;
+ * value-based&lt;/a&gt; class; use of identity-sensitive operations (including
+ * reference equality ({@code ==}), identity hash code, or synchronization) on
+ * instances of {@code IntegerGene} may have unpredictable results and should
+ * be avoided.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 2.0
+ * @version 3.2
+ */
+@XmlJavaTypeAdapter(IntegerGene.Model.Adapter.class)
+public final class IntegerGene
+	extends AbstractNumericGene&lt;Integer, IntegerGene&gt;
+	implements
+		NumericGene&lt;Integer, IntegerGene&gt;,
+		Mean&lt;IntegerGene&gt;,
+		Comparable&lt;IntegerGene&gt;,
+		Serializable
+{
+
+	private static final long serialVersionUID = 1L;
+
+	/**
+	 * Create a new random {@code IntegerGene} with the given value and the
+	 * given range. If the {@code value} isn't within the interval [min, max],
+	 * no exception is thrown. In this case the method
+	 * {@link IntegerGene#isValid()} returns {@code false}.
+	 *
+	 * @param value the value of the gene.
+	 * @param min the minimal valid value of this gene (inclusively).
+	 * @param max the maximal valid value of this gene (inclusively).
+	 * @throws NullPointerException if one of the arguments is {@code null}.
+	 */
+	IntegerGene(final Integer value, final Integer min, final Integer max) {
+<span class="fc" id="L79">		super(value, min, max);</span>
+<span class="fc" id="L80">	}</span>
+
+	@Override
+	public int compareTo(final IntegerGene other) {
+<span class="fc" id="L84">		return _value.compareTo(other._value);</span>
+	}
+
+	/**
+	 * Create a new random {@code IntegerGene} with the given value and the
+	 * given range. If the {@code value} isn't within the interval [min, max],
+	 * no exception is thrown. In this case the method
+	 * {@link IntegerGene#isValid()} returns {@code false}.
+	 *
+	 * @param value the value of the gene.
+	 * @param min the minimal valid value of this gene (inclusively).
+	 * @param max the maximal valid value of this gene (inclusively).
+	 * @return a new random {@code IntegerGene}
+	 */
+	public static IntegerGene of(final int value, final int min, final int max) {
+<span class="fc" id="L99">		return new IntegerGene(value, min, max);</span>
+	}
+
+	/**
+	 * Create a new random {@code IntegerGene} with the given value and the
+	 * given range. If the {@code value} isn't within the interval [min, max],
+	 * no exception is thrown. In this case the method
+	 * {@link IntegerGene#isValid()} returns {@code false}.
+	 *
+	 * @since 3.2
+	 *
+	 * @param value the value of the gene.
+	 * @param range the integer range to use
+	 * @return a new random {@code IntegerGene}
+	 * @throws NullPointerException if the given {@code range} is {@code null}.
+	 */
+	public static IntegerGene of(final int value, final IntRange range) {
+<span class="fc" id="L116">		return new IntegerGene(value, range.getMin(), range.getMax());</span>
+	}
+
+	/**
+	 * Create a new random {@code IntegerGene}. It is guaranteed that the value of
+	 * the {@code IntegerGene} lies in the interval [min, max].
+	 *
+	 * @param min the minimal valid value of this gene (inclusively).
+	 * @param max the maximal valid value of this gene (inclusively).
+	 * @return a new random {@code IntegerGene}
+	 */
+	public static IntegerGene of(final int min, final int max) {
+<span class="fc" id="L128">		return of(nextInt(getRandom(), min, max), min, max);</span>
+	}
+
+	/**
+	 * Create a new random {@code IntegerGene}. It is guaranteed that the value of
+	 * the {@code IntegerGene} lies in the interval [min, max].
+	 *
+	 * @since 3.2
+	 *
+	 * @param range the integer range to use
+	 * @return a new random {@code IntegerGene}
+	 * @throws NullPointerException if the given {@code range} is {@code null}.
+	 */
+	public static IntegerGene of(final IntRange range) {
+<span class="fc" id="L142">		return of(nextInt(getRandom(), range.getMin(), range.getMax()), range);</span>
+	}
+
+	static ISeq&lt;IntegerGene&gt; seq(
+		final Integer minimum,
+		final Integer maximum,
+		final int length
+	) {
+<span class="fc" id="L150">		final int min = minimum;</span>
+<span class="fc" id="L151">		final int max = maximum;</span>
+<span class="fc" id="L152">		final Random r = getRandom();</span>
+
+<span class="fc" id="L154">		return MSeq.&lt;IntegerGene&gt;ofLength(length)</span>
+<span class="fc" id="L155">			.fill(() -&gt; new IntegerGene(nextInt(r, min, max), minimum, maximum))</span>
+<span class="fc" id="L156">			.toISeq();</span>
+	}
+
+	@Override
+	public IntegerGene newInstance(final Number number) {
+<span class="fc" id="L161">		return new IntegerGene(number.intValue(), _min, _max);</span>
+	}
+
+	@Override
+	public IntegerGene newInstance() {
+<span class="fc" id="L166">		return new IntegerGene(</span>
+<span class="fc" id="L167">			nextInt(getRandom(), _min, _max), _min, _max</span>
+		);
+	}
+
+	@Override
+	public IntegerGene mean(final IntegerGene that) {
+<span class="fc" id="L173">		return new IntegerGene(_value + (that._value - _value)/2, _min, _max);</span>
+	}
+
+	/* *************************************************************************
+	 *  JAXB object serialization
+	 * ************************************************************************/
+
+	@XmlRootElement(name = &quot;int-gene&quot;)
+	@XmlType(name = &quot;org.jenetics.IntegerGene&quot;)
+	@XmlAccessorType(XmlAccessType.FIELD)
+<span class="fc" id="L183">	final static class Model {</span>
+
+		@XmlAttribute(name = &quot;min&quot;, required = true)
+		public int min;
+
+		@XmlAttribute(name = &quot;max&quot;, required = true)
+		public int max;
+
+		@XmlValue
+		public int value;
+
+<span class="fc" id="L194">		public final static class Adapter</span>
+			extends XmlAdapter&lt;Model, IntegerGene&gt;
+		{
+			@Override
+			public Model marshal(final IntegerGene value) {
+<span class="nc" id="L199">				final Model m = new Model();</span>
+<span class="nc" id="L200">				m.min = value.getMin();</span>
+<span class="nc" id="L201">				m.max = value.getMax();</span>
+<span class="nc" id="L202">				m.value = value.getAllele();</span>
+<span class="nc" id="L203">				return m;</span>
+			}
+
+			@Override
+			public IntegerGene unmarshal(final Model m) {
+<span class="fc" id="L208">				return IntegerGene.of(m.value, m.min, m.max);</span>
+			}
+		}
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

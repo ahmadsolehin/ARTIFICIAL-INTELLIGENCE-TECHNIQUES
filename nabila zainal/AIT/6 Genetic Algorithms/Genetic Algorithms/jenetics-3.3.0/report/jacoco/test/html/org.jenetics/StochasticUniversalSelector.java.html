@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>StochasticUniversalSelector.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">StochasticUniversalSelector.java</span></div><h1>StochasticUniversalSelector.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.util.Objects.requireNonNull;
+
+import org.jenetics.internal.util.Equality;
+import org.jenetics.internal.util.Hash;
+
+import org.jenetics.util.RandomRegistry;
+
+/**
+ * {@code StochasticUniversalSelector} is a method for selecting a
+ * population according to some given probability in a way that minimize chance
+ * fluctuations. It can be viewed as a type of roulette game where now we have
+ * P equally spaced points which we spin.
+ *
+ * &lt;p&gt;
+ * &lt;img src=&quot;doc-files/StochasticUniversalSelection.svg&quot; width=&quot;400&quot;
+ *      alt=&quot;Selector&quot;&gt;
+ * &lt;/p&gt;
+ *
+ * The figure above shows how the stochastic-universal selection works; &lt;i&gt;n&lt;/i&gt;
+ * is the number of individuals to select.
+ *
+ * @see &lt;a href=&quot;https://secure.wikimedia.org/wikipedia/en/wiki/Stochastic_universal_sampling&quot;&gt;
+ *           Wikipedia: Stochastic universal sampling
+ *      &lt;/a&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.2
+ */
+<span class="pc bpc" id="L51" title="1 of 2 branches missed.">public class StochasticUniversalSelector&lt;</span>
+	G extends Gene&lt;?, G&gt;,
+	N extends Number &amp; Comparable&lt;? super N&gt;
+&gt;
+	extends RouletteWheelSelector&lt;G, N&gt;
+{
+
+	public StochasticUniversalSelector() {
+<span class="fc" id="L59">		super(true);</span>
+<span class="fc" id="L60">	}</span>
+
+	/**
+	 * This method sorts the population in descending order while calculating the
+	 * selection probabilities. (The method {@link Population#populationSort()} is called
+	 * by this method.)
+	 */
+	@Override
+	public Population&lt;G, N&gt; select(
+		final Population&lt;G, N&gt; population,
+		final int count,
+		final Optimize opt
+	) {
+<span class="fc" id="L73">		requireNonNull(population, &quot;Population&quot;);</span>
+<span class="fc bfc" id="L74" title="All 2 branches covered.">		if (count &lt; 0) {</span>
+<span class="fc" id="L75">			throw new IllegalArgumentException(</span>
+				&quot;Selection count must be greater or equal then zero, but was &quot; +
+				count
+			);
+		}
+
+<span class="fc" id="L81">		final Population&lt;G, N&gt; selection = new Population&lt;&gt;(count);</span>
+<span class="fc bfc" id="L82" title="All 4 branches covered.">		if (count == 0 || population.isEmpty()) {</span>
+<span class="fc" id="L83">			return selection;</span>
+		}
+
+<span class="fc" id="L86">		final Population&lt;G, N&gt; pop = copy(population);</span>
+<span class="fc" id="L87">		final double[] probabilities = probabilities(pop, count, opt);</span>
+<span class="pc bpc" id="L88" title="2 of 4 branches missed.">		assert  pop.size() == probabilities.length;</span>
+
+		//Calculating the equally spaces random points.
+<span class="fc" id="L91">		final double delta = 1.0/count;</span>
+<span class="fc" id="L92">		final double[] points = new double[count];</span>
+<span class="fc" id="L93">		points[0] = RandomRegistry.getRandom().nextDouble()*delta;</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">		for (int i = 1; i &lt; count; ++i) {</span>
+<span class="fc" id="L95">			points[i] = delta*i;</span>
+		}
+
+<span class="fc" id="L98">		int j = 0;</span>
+<span class="fc" id="L99">		double prop = 0;</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">		for (int i = 0; i &lt; count; ++i) {</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">			while (points[i] &gt; prop) {</span>
+<span class="fc" id="L102">				prop += probabilities[j];</span>
+<span class="fc" id="L103">				++j;</span>
+			}
+<span class="fc" id="L105">			selection.add(pop.get(j%pop.size()));</span>
+		}
+
+<span class="fc" id="L108">		return selection;</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L113">		return Hash.of(getClass()).and(super.hashCode()).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc" id="L118">		return Equality.of(this, obj).test(super::equals);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L123">		return getClass().getSimpleName();</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

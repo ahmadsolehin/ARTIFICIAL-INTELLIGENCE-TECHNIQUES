@@ -1,0 +1,476 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Quantile.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.stat</a> &gt; <span class="el_source">Quantile.java</span></div><h1>Quantile.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.stat;
+
+import static java.lang.Double.compare;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static org.jenetics.internal.util.Equality.eq;
+
+import java.util.Arrays;
+import java.util.function.DoubleConsumer;
+import java.util.function.ToDoubleFunction;
+import java.util.stream.Collector;
+
+import org.jenetics.internal.util.Hash;
+
+/**
+ * Implementation of the quantile estimation algorithm published by
+ * &lt;p&gt;
+ * &lt;strong&gt;Raj JAIN and Imrich CHLAMTAC&lt;/strong&gt;:
+ * &lt;em&gt;
+ *     The P&lt;sup&gt;2&lt;/sup&gt; Algorithm for Dynamic Calculation of Quantiles and
+ *     Histograms Without Storing Observations
+ * &lt;/em&gt;
+ * &lt;br&gt;
+ * [&lt;a href=&quot;http://www.cse.wustl.edu/~jain/papers/ftp/psqr.pdf&quot;&gt;Communications
+ * of the ACM; October 1985, Volume 28, Number 10&lt;/a&gt;]
+ * &lt;p&gt;
+ * This class is designed to work with (though does not require) streams. For
+ * example, you can compute the quantile with:
+ * &lt;pre&gt;{@code
+ * final DoubleStream stream = ...
+ * final Quantile quantile = stream.collect(
+ *         () -&gt; new Quantile(0.23),
+ *         Quantile::accept,
+ *         Quantile::combine
+ *     );
+ * }&lt;/pre&gt;
+ *
+ * &lt;p&gt;
+ * &lt;b&gt;Implementation note:&lt;/b&gt;
+ * &lt;i&gt;This implementation is not thread safe. However, it is safe to use on a
+ * parallel stream, because the parallel implementation of
+ * {@link java.util.stream.Stream#collect Stream.collect()}provides the
+ * necessary partitioning, isolation, and merging of results for safe and
+ * efficient parallel execution.&lt;/i&gt;
+ * &lt;br&gt;
+ * &lt;i&gt;Using this class in the {@code collect} method of an parallel stream can
+ * lead to an reduced accuracy of the quantile value. Since this implementation
+ * is an estimation algorithm, combining the estimations will only work for
+ * large streams ({@code size &gt;&gt; 1000}).&lt;/i&gt;
+ *
+ * @see &lt;a href=&quot;http://en.wikipedia.org/wiki/Quantile&quot;&gt;Wikipedia: Quantile&lt;/a&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.1
+ */
+<span class="pc bpc" id="L76" title="1 of 2 branches missed.">public class Quantile implements DoubleConsumer {</span>
+
+<span class="fc" id="L78">	private long _samples = 0;</span>
+
+	// The desired quantile.
+	private final double _quantile;
+
+	// Marker heights.
+<span class="fc" id="L84">	private final double[] _q = {0, 0, 0, 0, 0};</span>
+
+	// Marker positions.
+<span class="fc" id="L87">	private final double[] _n = {0, 0, 0, 0, 0};</span>
+
+	// Desired marker positions.
+<span class="fc" id="L90">	private final double[] _nn = {0, 0, 0};</span>
+
+	// Desired marker position increments.
+<span class="fc" id="L93">	private final double[] _dn = {0, 0, 0};</span>
+
+	private boolean _initialized;
+
+	/**
+	 * Create a new quantile accumulator with the given value.
+	 *
+	 * @param quantile the wished quantile value.
+	 * @throws IllegalArgumentException if the {@code quantile} is not in the
+	 *         range {@code [0, 1]}.
+	 */
+<span class="fc" id="L104">	public Quantile(final double quantile) {</span>
+<span class="fc" id="L105">		_quantile = quantile;</span>
+<span class="fc" id="L106">		init(quantile);</span>
+<span class="fc" id="L107">	}</span>
+
+	private void init(final double quantile) {
+<span class="fc" id="L110">		check(quantile);</span>
+
+<span class="fc" id="L112">		Arrays.fill(_q, 0);</span>
+<span class="fc" id="L113">		Arrays.fill(_n, 0);</span>
+<span class="fc" id="L114">		Arrays.fill(_nn, 0);</span>
+<span class="fc" id="L115">		Arrays.fill(_dn, 0);</span>
+
+<span class="fc" id="L117">		_n[0] = -1.0;</span>
+<span class="fc" id="L118">		_q[2] = 0.0;</span>
+<span class="fc" id="L119">		_initialized =</span>
+<span class="fc bfc" id="L120" title="All 2 branches covered.">			compare(quantile, 0.0) == 0 ||</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">			compare(quantile, 1.0) == 0;</span>
+
+<span class="fc" id="L123">		_samples = 0;</span>
+<span class="fc" id="L124">	}</span>
+
+	private static void check(final double quantile) {
+<span class="pc bpc" id="L127" title="2 of 4 branches missed.">		if (quantile &lt; 0.0 || quantile &gt; 1) {</span>
+<span class="nc" id="L128">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L129">				&quot;Quantile (%s) not in the valid range of [0, 1]&quot;, quantile</span>
+			));
+		}
+<span class="fc" id="L132">	}</span>
+
+	/**
+	 * Reset this object to its initial state.
+	 */
+	public void reset() {
+<span class="fc" id="L138">		init(_quantile);</span>
+<span class="fc" id="L139">	}</span>
+
+	/**
+	 * Return the &lt;em&gt;quantile&lt;/em&gt; {@code this} object has been parametrized
+	 * with.
+	 *
+	 * @since 3.1
+	 *
+	 * @return the &lt;em&gt;quantile&lt;/em&gt; {@code this} object has been parametrized
+	 *         with
+	 */
+	public double getQuantile() {
+<span class="nc" id="L151">		return _quantile;</span>
+	}
+
+	/**
+	 * Return the computed quantile value.
+	 *
+	 * @return the quantile value.
+	 */
+	public double getValue() {
+<span class="fc" id="L160">		return _q[2];</span>
+	}
+
+	/**
+	 * Return the number of samples the quantile value  was calculated of.
+	 *
+	 *
+	 * @return the number of samples the quantile value  was calculated of
+	 */
+	public long getSamples() {
+<span class="fc" id="L170">		return _samples;</span>
+	}
+
+	@Override
+	public void accept(final double value) {
+<span class="fc bfc" id="L175" title="All 2 branches covered.">		if (!_initialized) {</span>
+<span class="fc" id="L176">			initialize(value);</span>
+		} else {
+<span class="fc" id="L178">			update(value);</span>
+		}
+
+<span class="fc" id="L181">		++_samples;</span>
+<span class="fc" id="L182">	}</span>
+
+	/**
+	 * Combine two {@code Quantile} objects.
+	 *
+	 * @since 3.1
+	 *
+	 * @param other the other {@code Quantile} object to combine
+	 * @return {@code this}
+	 * @throws java.lang.NullPointerException if the {@code other} object is
+	 *         {@code null}.
+	 * @throws java.lang.IllegalArgumentException if the {@link #getQuantile}
+	 *         of the {@code other} object differs from {@code this} one.
+	 */
+	public Quantile combine(final Quantile other) {
+<span class="pc bpc" id="L197" title="1 of 2 branches missed.">		if (_quantile != other._quantile) {</span>
+<span class="nc" id="L198">			throw new IllegalArgumentException(format(</span>
+				&quot;Can't perform combine, the quantile are not equal: %s != %s&quot;,
+<span class="nc" id="L200">				_quantile, other._quantile</span>
+			));
+		}
+
+<span class="fc" id="L204">		_samples += other._samples;</span>
+
+<span class="fc bfc" id="L206" title="All 2 branches covered.">		if (_quantile == 0.0) {</span>
+<span class="fc" id="L207">			_q[2] = Math.min(_q[2], other._q[2]);</span>
+<span class="fc bfc" id="L208" title="All 2 branches covered.">		} else if (_quantile == 1.0) {</span>
+<span class="fc" id="L209">			_q[2] = Math.max(_q[2], other._q[2]);</span>
+		} else {
+			// Combine the marker positions.
+<span class="fc" id="L212">			_n[1] += other._n[1];</span>
+<span class="fc" id="L213">			_n[2] += other._n[2];</span>
+<span class="fc" id="L214">			_n[3] += other._n[3];</span>
+<span class="fc" id="L215">			_n[4] += other._n[4];</span>
+
+			// Combine the marker height.
+<span class="fc" id="L218">			_q[0] = Math.min(_q[0], other._q[0]);</span>
+<span class="fc" id="L219">			_q[1] = (_q[1] + other._q[1])*0.5;</span>
+<span class="fc" id="L220">			_q[2] = (_q[2] + other._q[2])*0.5;</span>
+<span class="fc" id="L221">			_q[3] = (_q[3] + other._q[3])*0.5;</span>
+<span class="fc" id="L222">			_q[4] = Math.max(_q[4], other._q[4]);</span>
+
+			// Combine position of markers.
+<span class="fc" id="L225">			_nn[0] += other._nn[0];</span>
+<span class="fc" id="L226">			_nn[1] += other._nn[1];</span>
+<span class="fc" id="L227">			_nn[2] += other._nn[2];</span>
+
+<span class="fc" id="L229">			adjustMarkerHeights();</span>
+		}
+
+<span class="fc" id="L232">		return this;</span>
+	}
+
+	private void initialize(double value) {
+<span class="fc bfc" id="L236" title="All 2 branches covered.">		if (_n[0] &lt; 0.0) {</span>
+<span class="fc" id="L237">			_n[0] = 0.0;</span>
+<span class="fc" id="L238">			_q[0] = value;</span>
+<span class="fc bfc" id="L239" title="All 2 branches covered.">		} else if (_n[1] == 0.0) {</span>
+<span class="fc" id="L240">			_n[1] = 1.0;</span>
+<span class="fc" id="L241">			_q[1] = value;</span>
+<span class="fc bfc" id="L242" title="All 2 branches covered.">		} else if (_n[2] == 0.0) {</span>
+<span class="fc" id="L243">			_n[2] = 2.0;</span>
+<span class="fc" id="L244">			_q[2] = value;</span>
+<span class="fc bfc" id="L245" title="All 2 branches covered.">		} else if (_n[3] == 0.0) {</span>
+<span class="fc" id="L246">			_n[3] = 3.0;</span>
+<span class="fc" id="L247">			_q[3] = value;</span>
+<span class="pc bpc" id="L248" title="1 of 2 branches missed.">		} else if (_n[4] == 0.0) {</span>
+<span class="fc" id="L249">			_n[4] = 4.0;</span>
+<span class="fc" id="L250">			_q[4] = value;</span>
+		}
+
+<span class="fc bfc" id="L253" title="All 2 branches covered.">		if (_n[4] != 0.0) {</span>
+<span class="fc" id="L254">			Arrays.sort(_q);</span>
+
+<span class="fc" id="L256">			_nn[0] = 2.0*_quantile;</span>
+<span class="fc" id="L257">			_nn[1] = 4.0*_quantile;</span>
+<span class="fc" id="L258">			_nn[2] = 2.0*_quantile + 2.0;</span>
+
+<span class="fc" id="L260">			_dn[0] = _quantile/2.0;</span>
+<span class="fc" id="L261">			_dn[1] = _quantile;</span>
+<span class="fc" id="L262">			_dn[2] = (1.0 + _quantile)/2.0;</span>
+
+<span class="fc" id="L264">			_initialized = true;</span>
+		}
+<span class="fc" id="L266">	}</span>
+
+	private void update(double value) {
+<span class="pc bpc" id="L269" title="2 of 4 branches missed.">		assert (_initialized);</span>
+
+		// If min or max, handle as special case; otherwise, ...
+<span class="fc bfc" id="L272" title="All 2 branches covered.">		if (_quantile == 0.0) {</span>
+<span class="pc bpc" id="L273" title="1 of 2 branches missed.">			if (value &lt; _q[2]) {</span>
+<span class="nc" id="L274">				_q[2] = value;</span>
+			}
+<span class="fc bfc" id="L276" title="All 2 branches covered.">		} else if (_quantile == 1.0) {</span>
+<span class="fc bfc" id="L277" title="All 2 branches covered.">			if (value &gt; _q[2]) {</span>
+<span class="fc" id="L278">				_q[2] = value;</span>
+			}
+		} else {
+			// Increment marker locations and update min and max.
+<span class="fc bfc" id="L282" title="All 2 branches covered.">			if (value &lt; _q[0]) {</span>
+<span class="fc" id="L283">				++_n[1]; ++_n[2]; ++_n[3]; ++_n[4]; _q[0] = value;</span>
+<span class="fc bfc" id="L284" title="All 2 branches covered.">			} else if (value &lt; _q[1]) {</span>
+<span class="fc" id="L285">				++_n[1]; ++_n[2]; ++_n[3]; ++_n[4];</span>
+<span class="fc bfc" id="L286" title="All 2 branches covered.">			} else if (value &lt; _q[2]) {</span>
+<span class="fc" id="L287">				++_n[2]; ++_n[3]; ++_n[4];</span>
+<span class="fc bfc" id="L288" title="All 2 branches covered.">			} else if (value &lt; _q[3]) {</span>
+<span class="fc" id="L289">				++_n[3]; ++_n[4];</span>
+<span class="fc bfc" id="L290" title="All 2 branches covered.">			} else if (value &lt; _q[4]) {</span>
+<span class="fc" id="L291">				++_n[4];</span>
+			} else {
+<span class="fc" id="L293">				++_n[4]; _q[4] = value;</span>
+			}
+
+			// Increment positions of markers k + 1
+<span class="fc" id="L297">			_nn[0] += _dn[0];</span>
+<span class="fc" id="L298">			_nn[1] += _dn[1];</span>
+<span class="fc" id="L299">			_nn[2] += _dn[2];</span>
+
+<span class="fc" id="L301">			adjustMarkerHeights();</span>
+		}
+<span class="fc" id="L303">	}</span>
+
+	// Adjust heights of markers 0 to 2 if necessary
+	private void adjustMarkerHeights() {
+<span class="fc" id="L307">		double mm = _n[1] - 1.0;</span>
+<span class="fc" id="L308">		double mp = _n[1] + 1.0;</span>
+<span class="fc bfc" id="L309" title="All 4 branches covered.">		if (_nn[0] &gt;= mp &amp;&amp; _n[2] &gt; mp) {</span>
+<span class="fc" id="L310">			_q[1] = qPlus(mp, _n[0], _n[1], _n[2], _q[0], _q[1], _q[2]);</span>
+<span class="fc" id="L311">			_n[1] = mp;</span>
+<span class="pc bpc" id="L312" title="1 of 4 branches missed.">		} else if (_nn[0] &lt;= mm &amp;&amp; _n[0] &lt; mm) {</span>
+<span class="fc" id="L313">			_q[1] = qMinus(mm, _n[0], _n[1], _n[2], _q[0], _q[1], _q[2]);</span>
+<span class="fc" id="L314">			_n[1] = mm;</span>
+		}
+
+<span class="fc" id="L317">		mm = _n[2] - 1.0;</span>
+<span class="fc" id="L318">		mp = _n[2] + 1.0;</span>
+<span class="fc bfc" id="L319" title="All 4 branches covered.">		if (_nn[1] &gt;= mp &amp;&amp; _n[3] &gt; mp) {</span>
+<span class="fc" id="L320">			_q[2] = qPlus(mp, _n[1], _n[2], _n[3], _q[1], _q[2], _q[3]);</span>
+<span class="fc" id="L321">			_n[2] = mp;</span>
+<span class="fc bfc" id="L322" title="All 4 branches covered.">		} else if (_nn[1] &lt;= mm &amp;&amp; _n[1] &lt; mm) {</span>
+<span class="fc" id="L323">			_q[2] = qMinus(mm, _n[1], _n[2], _n[3], _q[1], _q[2], _q[3]);</span>
+<span class="fc" id="L324">			_n[2] = mm;</span>
+		}
+
+<span class="fc" id="L327">		mm = _n[3] - 1.0;</span>
+<span class="fc" id="L328">		mp = _n[3] + 1.0;</span>
+<span class="pc bpc" id="L329" title="1 of 4 branches missed.">		if (_nn[2] &gt;= mp &amp;&amp; _n[4] &gt; mp) {</span>
+<span class="fc" id="L330">			_q[3] = qPlus(mp, _n[2], _n[3], _n[4], _q[2], _q[3], _q[4]);</span>
+<span class="fc" id="L331">			_n[3] = mp;</span>
+<span class="pc bpc" id="L332" title="1 of 4 branches missed.">		} else if (_nn[2] &lt;= mm &amp;&amp; _n[2] &lt; mm) {</span>
+<span class="fc" id="L333">			_q[3] = qMinus(mm, _n[2], _n[3], _n[4], _q[2], _q[3], _q[4]);</span>
+<span class="fc" id="L334">			_n[3] = mm;</span>
+		}
+<span class="fc" id="L336">	}</span>
+
+	private static double qPlus(
+		final double mp,
+		final double m0,
+		final double m1,
+		final double m2,
+		final double q0,
+		final double q1,
+		final double q2
+	) {
+<span class="fc" id="L347">		double result = q1 +</span>
+					((mp - m0)*(q2 - q1)/(m2 - m1) +
+					(m2 - mp)*(q1 - q0)/(m1 - m0))/(m2 - m0);
+
+<span class="fc bfc" id="L351" title="All 2 branches covered.">		if (result &gt; q2) {</span>
+<span class="fc" id="L352">			result = q1 + (q2 - q1)/(m2 - m1);</span>
+		}
+
+<span class="fc" id="L355">		return result;</span>
+	}
+
+	private static double qMinus(
+		final double mm,
+		final double m0,
+		final double m1,
+		final double m2,
+		final double q0,
+		final double q1,
+		final double q2
+	) {
+<span class="fc" id="L367">		double result = q1 -</span>
+					((mm - m0)*(q2 - q1)/(m2 - m1) +
+					(m2 - mm)*(q1 - q0)/(m1 - m0))/(m2 - m0);
+
+<span class="fc bfc" id="L371" title="All 2 branches covered.">		if (q0 &gt; result) {</span>
+<span class="fc" id="L372">			result = q1 + (q0 - q1)/(m0 - m1);</span>
+		}
+
+<span class="fc" id="L375">		return result;</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="nc" id="L380">		return Hash.of(getClass()).</span>
+<span class="nc" id="L381">			and(super.hashCode()).</span>
+<span class="nc" id="L382">			and(_quantile).</span>
+<span class="nc" id="L383">			and(_dn).</span>
+<span class="nc" id="L384">			and(_n).</span>
+<span class="nc" id="L385">			and(_nn).</span>
+<span class="nc" id="L386">			and(_q).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="nc bnc" id="L391" title="All 2 branches missed.">		return obj instanceof Quantile &amp;&amp;</span>
+<span class="nc bnc" id="L392" title="All 2 branches missed.">			eq(_quantile, ((Quantile)obj)._quantile) &amp;&amp;</span>
+<span class="nc bnc" id="L393" title="All 2 branches missed.">			eq(_dn, ((Quantile)obj)._dn) &amp;&amp;</span>
+<span class="nc bnc" id="L394" title="All 2 branches missed.">			eq(_n, ((Quantile)obj)._n) &amp;&amp;</span>
+<span class="nc bnc" id="L395" title="All 2 branches missed.">			eq(_nn, ((Quantile)obj)._nn) &amp;&amp;</span>
+<span class="nc bnc" id="L396" title="All 2 branches missed.">			eq(_q, ((Quantile)obj)._q) &amp;&amp;</span>
+<span class="nc bnc" id="L397" title="All 2 branches missed.">			super.equals(obj);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="nc" id="L402">		return format(</span>
+			&quot;%s[samples=%d, quantile=%f]&quot;,
+<span class="nc" id="L404">			getClass().getSimpleName(), getSamples(), getValue()</span>
+		);
+	}
+
+
+	static Quantile median() {
+<span class="fc" id="L410">		return new Quantile(0.5);</span>
+	}
+
+	/**
+	 * Return a {@code Collector} which applies an double-producing mapping
+	 * function to each input element, and returns quantiles for the resulting
+	 * values.
+	 *
+	 * &lt;pre&gt;{@code
+	 * final Stream&lt;SomeObject&gt; stream = ...
+	 * final Quantile quantile = stream
+	 *     .collect(toQuantile(0.25, v -&gt; v.doubleValue()));
+	 * }&lt;/pre&gt;
+	 *
+	 * @param quantile the wished quantile value.
+	 * @param mapper a mapping function to apply to each element
+	 * @param &lt;T&gt; the type of the input elements
+	 * @return a {@code Collector} implementing the quantiles reduction
+	 * @throws java.lang.NullPointerException if the given {@code mapper} is
+	 *         {@code null}
+	 * @throws IllegalArgumentException if the {@code quantile} is not in the
+	 *         range {@code [0, 1]}.
+	 */
+	public static &lt;T&gt; Collector&lt;T, ?, Quantile&gt; toQuantile(
+		final double quantile,
+		final ToDoubleFunction&lt;? super T&gt; mapper
+	) {
+<span class="nc" id="L437">		check(quantile);</span>
+<span class="nc" id="L438">		requireNonNull(mapper);</span>
+
+<span class="nc" id="L440">		return Collector.of(</span>
+			() -&gt; new Quantile(quantile),
+			(r, t) -&gt; r.accept(mapper.applyAsDouble(t)),
+			Quantile::combine
+		);
+	}
+
+	/**
+	 * Return a {@code Collector} which applies an double-producing mapping
+	 * function to each input element, and returns the median for the resulting
+	 * values.
+	 *
+	 * &lt;pre&gt;{@code
+	 * final Stream&lt;SomeObject&gt; stream = ...
+	 * final Quantile median = stream.collect(toMedian(v -&gt; v.doubleValue()));
+	 * }&lt;/pre&gt;
+	 *
+	 * @param mapper a mapping function to apply to each element
+	 * @param &lt;T&gt; the type of the input elements
+	 * @return a {@code Collector} implementing the quantiles reduction
+	 * @throws java.lang.NullPointerException if the given {@code mapper} is
+	 *         {@code null}
+	 */
+	public static &lt;T&gt; Collector&lt;T, ?, Quantile&gt; toMedian(
+		final ToDoubleFunction&lt;? super T&gt; mapper
+	) {
+<span class="nc" id="L466">		requireNonNull(mapper);</span>
+
+<span class="nc" id="L468">		return Collector.of(</span>
+			Quantile::median,
+			(r, t) -&gt; r.accept(mapper.applyAsDouble(t)),
+			Quantile::combine
+		);
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

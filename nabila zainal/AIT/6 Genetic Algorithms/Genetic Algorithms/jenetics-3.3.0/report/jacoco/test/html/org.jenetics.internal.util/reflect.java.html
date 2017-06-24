@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>reflect.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.util</a> &gt; <span class="el_source">reflect.java</span></div><h1>reflect.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.util;
+
+import static java.util.Arrays.stream;
+import static java.util.stream.Stream.concat;
+
+import java.util.Optional;
+import java.util.stream.Stream;
+
+import org.jenetics.util.ISeq;
+
+/**
+ * Helper methods concerning Java reflection.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.6
+ * @version 3.0
+ */
+public class reflect {
+<span class="nc" id="L38">	private reflect() {require.noInstance();}</span>
+
+	/**
+	 * Return all declared classes of the given class, with arbitrary nested
+	 * level.
+	 *
+	 * @param cls the class for which the declared classes are retrieved.
+	 * @return all nested classes
+	 */
+	public static Stream&lt;Class&lt;?&gt;&gt; innerClasses(final Class&lt;?&gt; cls) {
+<span class="fc" id="L48">		return concat(</span>
+<span class="fc" id="L49">			stream(cls.getDeclaredClasses()).flatMap(reflect::innerClasses),</span>
+<span class="fc" id="L50">			stream(cls.getDeclaredClasses())</span>
+		);
+	}
+
+	/**
+	 * Return the class of the given value or the value if it is already from
+	 * the type {@code Class}.
+	 *
+	 * @param value the value to get the class from.
+	 * @return the class from the given value, or {@code value} if it is already
+	 *         a {@code Class}.
+	 */
+	public static Class&lt;?&gt; classOf(final Object value) {
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">		return value instanceof Class&lt;?&gt; ? (Class&lt;?&gt;)value : value.getClass();</span>
+	}
+
+	@SuppressWarnings(&quot;unchecked&quot;)
+	public static &lt;T&gt; Optional&lt;T&gt; newInstance(final Class&lt;?&gt; type) {
+		try {
+<span class="fc" id="L69">			return Optional.of((T)type.newInstance());</span>
+<span class="nc" id="L70">		} catch (InstantiationException | IllegalAccessException e) {</span>
+<span class="nc" id="L71">			return Optional.empty();</span>
+		}
+	}
+
+	@SuppressWarnings(&quot;unchecked&quot;)
+	public static &lt;A, B extends A&gt; ISeq&lt;A&gt; cast(final ISeq&lt;B&gt; seq) {
+<span class="fc" id="L77">		return (ISeq&lt;A&gt;)seq;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

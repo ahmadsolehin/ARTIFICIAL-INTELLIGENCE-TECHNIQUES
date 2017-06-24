@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>jaxb.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.util</a> &gt; <span class="el_source">jaxb.java</span></div><h1>jaxb.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.util;
+
+import static org.jenetics.internal.util.reflect.classOf;
+import static org.jenetics.internal.util.reflect.innerClasses;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.function.Function;
+
+import javax.xml.bind.DataBindingException;
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.annotation.adapters.XmlAdapter;
+
+import org.jenetics.internal.util.model.CharacterModel;
+
+/**
+ * JAXB helper methods.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @version 1.6
+ * @since 2.0
+ */
+public class jaxb {
+<span class="nc" id="L44">	private jaxb() {require.noInstance();}</span>
+
+<span class="nc" id="L46">	private static final class JAXBContextHolder {</span>
+		private static final JAXBContext CONTEXT; static {
+			try {
+<span class="fc" id="L49">				CONTEXT = JAXBContext.newInstance(</span>
+					&quot;org.jenetics:org.jenetics.internal.util&quot;
+				);
+<span class="nc" id="L52">			} catch (JAXBException e) {</span>
+<span class="nc" id="L53">				throw new DataBindingException(</span>
+					&quot;Something went wrong while creating JAXBContext.&quot;, e
+				);
+<span class="fc" id="L56">			}</span>
+<span class="fc" id="L57">		}</span>
+	}
+
+	public static JAXBContext context() {
+<span class="fc" id="L61">		return JAXBContextHolder.CONTEXT;</span>
+	}
+
+<span class="fc" id="L64">	private static final XmlAdapter&lt;Object, Object&gt; IDENTITY_ADAPTER =</span>
+<span class="fc" id="L65">		new XmlAdapter&lt;Object, Object&gt;() {</span>
+			@Override public Object unmarshal(final Object value) {
+<span class="fc" id="L67">				return value;</span>
+			}
+			@Override public Object marshal(final Object value) {
+<span class="nc" id="L70">				return value;</span>
+			}
+		};
+
+<span class="fc" id="L74">	private static final ConcurrentMap&lt;Class&lt;?&gt;, XmlAdapter&lt;?, ?&gt;&gt; ADAPTERS =</span>
+		new ConcurrentHashMap&lt;&gt;();
+
+	static {
+<span class="fc" id="L78">		ADAPTERS.put(Character.class, CharacterModel.ADAPTER);</span>
+<span class="fc" id="L79">		ADAPTERS.put(CharacterModel.class, CharacterModel.ADAPTER);</span>
+<span class="fc" id="L80">	}</span>
+
+	/**
+	 * Return the an {@code XmlAdapter} for the given {@code vale}. If no
+	 * adapter could be found, and identity adapter is returned.
+	 *
+	 * @param value the object for which to find an {@code XmlAdapter}
+	 * @return the {@code XmlAdapter} for the given object, or an identity
+	 *         adapter if no one can be found.
+	 */
+	@SuppressWarnings(&quot;unchecked&quot;)
+	public static XmlAdapter&lt;Object, Object&gt; adapterFor(final Object value) {
+<span class="fc" id="L92">		return (XmlAdapter&lt;Object, Object&gt;)ADAPTERS</span>
+<span class="fc" id="L93">			.computeIfAbsent(classOf(value), jaxb::newXmlAdapter);</span>
+	}
+
+	private static XmlAdapter&lt;Object, Object&gt; newXmlAdapter(final Class&lt;?&gt; cls) {
+<span class="fc" id="L97">		return innerClasses(cls)</span>
+<span class="fc" id="L98">			.filter(XmlAdapter.class::isAssignableFrom)</span>
+<span class="fc" id="L99">			.findFirst()</span>
+<span class="fc" id="L100">			.flatMap(reflect::&lt;XmlAdapter&lt;Object, Object&gt;&gt;newInstance)</span>
+<span class="fc" id="L101">			.orElse(IDENTITY_ADAPTER);</span>
+	}
+
+	/**
+	 * Shorthand for {@code adapterFor(value).marshal(value)}
+	 */
+	public static Object marshal(final Object value) throws Exception {
+<span class="nc" id="L108">		return adapterFor(value).marshal(value);</span>
+	}
+
+	/**
+	 * Shorthand for {@code adapterFor(value).unmarshal(value)}
+	 */
+	public static Object unmarshal(final Object value) throws Exception {
+<span class="nc" id="L115">		return adapterFor(value).unmarshal(value);</span>
+	}
+
+	/**
+	 * Return a marshaller function from the given
+	 * {@link javax.xml.bind.annotation.adapters.XmlAdapter}.
+	 *
+	 * @param a the adapter used by the marshaller function.
+	 * @return the marshaller function
+	 */
+	public static &lt;V, B&gt; Function&lt;B, V&gt; Marshaller(final XmlAdapter&lt;V, B&gt; a) {
+<span class="nc" id="L126">		return value -&gt; {</span>
+			try {
+				return a.marshal(value);
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		};
+	}
+
+	/**
+	 * Return a unmarshaller function from the given
+	 * {@link javax.xml.bind.annotation.adapters.XmlAdapter}.
+	 *
+	 * @param a the adapter used by the unmarshaller function.
+	 * @return the unmarshaller function
+	 */
+	public static &lt;V, B&gt; Function&lt;V, B&gt; Unmarshaller(final XmlAdapter&lt;V, B&gt; a) {
+<span class="fc" id="L143">		return value -&gt; {</span>
+			try {
+				return a.unmarshal(value);
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		};
+	}
+
+	/**
+	 * Return a marshaller function for the given object.
+	 *
+	 * @param value the value to marshal
+	 * @return the marshaller function
+	 */
+	public static Function&lt;Object, Object&gt; Marshaller(final Object value) {
+<span class="nc" id="L159">		return Marshaller(adapterFor(value));</span>
+	}
+
+	/**
+	 * Return a unmarshaller function for the given object.
+	 *
+	 * @param value the value to unmarshal
+	 * @return the unmarshaller function
+	 */
+	public static Function&lt;Object, Object&gt; Unmarshaller(final Object value)  {
+<span class="fc" id="L169">		return Unmarshaller(jaxb.adapterFor(value));</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

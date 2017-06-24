@@ -1,0 +1,536 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>random.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.math</a> &gt; <span class="el_source">random.java</span></div><h1>random.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.math;
+
+import static java.lang.Math.abs;
+import static java.lang.Math.nextDown;
+import static java.lang.String.format;
+import static org.jenetics.internal.util.require.probability;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.Random;
+import java.util.stream.IntStream;
+
+import org.jenetics.internal.util.require;
+
+/**
+ * Some random helper functions.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.4
+ * @version 3.0
+ */
+public final class random {
+<span class="nc" id="L42">	private random() {require.noInstance();}</span>
+
+	public static byte nextByte(final Random random) {
+<span class="fc" id="L45">		return (byte)nextInt(random, Byte.MIN_VALUE, Byte.MAX_VALUE);</span>
+	}
+
+	public static char nextCharacter(final Random random) {
+<span class="fc" id="L49">		char c = '\0';</span>
+		do {
+<span class="fc" id="L51">			c = (char)nextInt(random, Character.MIN_VALUE, Character.MAX_VALUE);</span>
+<span class="fc bfc" id="L52" title="All 2 branches covered.">		} while (!Character.isLetterOrDigit(c));</span>
+
+<span class="fc" id="L54">		return c;</span>
+	}
+
+	public static short nextShort(final Random random) {
+<span class="fc" id="L58">		return (short)nextInt(random, Short.MIN_VALUE, Short.MAX_VALUE);</span>
+	}
+
+	/**
+	 * Returns a pseudo-random, uniformly distributed int value between min and
+	 * max (min and max included).
+	 *
+	 * @param random the random engine to use for calculating the random int
+	 *        value
+	 * @param min lower bound for generated integer
+	 * @param max upper bound for generated integer
+	 * @return a random integer greater than or equal to {@code min} and
+	 *         less than or equal to {@code max}
+	 * @throws IllegalArgumentException if {@code min &gt; max}
+	 * @throws NullPointerException if the given {@code random}
+	 *         engine is {@code null}.
+	 */
+	public static int nextInt(
+		final Random random,
+		final int min, final int max
+	) {
+<span class="fc bfc" id="L79" title="All 2 branches covered.">		if (min &gt; max) {</span>
+<span class="fc" id="L80">			throw new IllegalArgumentException(format(</span>
+<span class="fc" id="L81">				&quot;Min &gt;= max: %d &gt;= %d&quot;, min, max</span>
+			));
+		}
+
+<span class="fc" id="L85">		final int diff = max - min + 1;</span>
+<span class="fc" id="L86">		int result = 0;</span>
+
+<span class="fc bfc" id="L88" title="All 2 branches covered.">		if (diff &lt;= 0) {</span>
+			do {
+<span class="fc" id="L90">				result = random.nextInt();</span>
+<span class="pc bpc" id="L91" title="1 of 4 branches missed.">			} while (result &lt; min || result &gt; max);</span>
+		} else {
+<span class="fc" id="L93">			result = random.nextInt(diff) + min;</span>
+		}
+
+<span class="fc" id="L96">		return result;</span>
+	}
+
+	/**
+	 * Returns a pseudo-random, uniformly distributed int value between min
+	 * and max (min and max included).
+	 *
+	 * @param random the random engine to use for calculating the random
+	 *        long value
+	 * @param min lower bound for generated long integer
+	 * @param max upper bound for generated long integer
+	 * @return a random long integer greater than or equal to {@code min}
+	 *         and less than or equal to {@code max}
+	 * @throws IllegalArgumentException if {@code min &gt; max}
+	 * @throws NullPointerException if the given {@code random}
+	 *         engine is {@code null}.
+	 */
+	public static long nextLong(
+		final Random random,
+		final long min, final long max
+	) {
+<span class="fc bfc" id="L117" title="All 2 branches covered.">		if (min &gt; max) {</span>
+<span class="fc" id="L118">			throw new IllegalArgumentException(format(</span>
+<span class="fc" id="L119">				&quot;min &gt;= max: %d &gt;= %d.&quot;, min, max</span>
+			));
+		}
+
+<span class="fc" id="L123">		final long diff = (max - min) + 1;</span>
+<span class="fc" id="L124">		long result = 0;</span>
+
+<span class="fc bfc" id="L126" title="All 2 branches covered.">		if (diff &lt;= 0) {</span>
+			do {
+<span class="fc" id="L128">				result = random.nextLong();</span>
+<span class="pc bpc" id="L129" title="1 of 4 branches missed.">			} while (result &lt; min || result &gt; max);</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">		} else if (diff &lt; Integer.MAX_VALUE) {</span>
+<span class="fc" id="L131">			result = random.nextInt((int)diff) + min;</span>
+		} else {
+<span class="fc" id="L133">			result = nextLong(random, diff) + min;</span>
+		}
+
+<span class="fc" id="L136">		return result;</span>
+	}
+
+	/**
+	 * Returns a pseudo-random, uniformly distributed int value between 0
+	 * (inclusive) and the specified value (exclusive), drawn from the given
+	 * random number generator's sequence.
+	 *
+	 * @param random the random engine used for creating the random number.
+	 * @param n the bound on the random number to be returned. Must be
+	 *        positive.
+	 * @return the next pseudo-random, uniformly distributed int value
+	 *         between 0 (inclusive) and n (exclusive) from the given random
+	 *         number generator's sequence
+	 * @throws IllegalArgumentException if n is smaller than 1.
+	 * @throws NullPointerException if the given {@code random}
+	 *         engine is {@code null}.
+	 */
+	public static long nextLong(final Random random, final long n) {
+<span class="pc bpc" id="L155" title="1 of 2 branches missed.">		if (n &lt;= 0) {</span>
+<span class="nc" id="L156">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L157">				&quot;n is smaller than one: %d&quot;, n</span>
+			));
+		}
+
+		long bits;
+		long result;
+		do {
+<span class="fc" id="L164">			bits = random.nextLong() &amp; 0x7fffffffffffffffL;</span>
+<span class="fc" id="L165">			result = bits%n;</span>
+<span class="pc bpc" id="L166" title="1 of 2 branches missed.">		} while (bits - result + (n - 1) &lt; 0);</span>
+
+<span class="fc" id="L168">		return result;</span>
+	}
+
+	/**
+	 * Returns a pseudo-random, uniformly distributed double value between
+	 * min (inclusively) and max (exclusively).
+	 *
+	 * @param random the random engine used for creating the random number.
+	 * @param min lower bound for generated float value (inclusively)
+	 * @param max upper bound for generated float value (exclusively)
+	 * @return a random float greater than or equal to {@code min} and less
+	 *         than to {@code max}
+	 * @throws NullPointerException if the given {@code random}
+	 *         engine is {@code null}.
+	 */
+	public static float nextFloat(
+		final Random random,
+		final float min, final float max
+	) {
+<span class="pc bpc" id="L187" title="1 of 2 branches missed.">		if (min &gt;= max) {</span>
+<span class="nc" id="L188">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L189">				&quot;min &gt;= max: %f &gt;= %f.&quot;, min, max</span>
+			));
+		}
+
+<span class="fc" id="L193">		float value = random.nextFloat();</span>
+<span class="pc bpc" id="L194" title="1 of 2 branches missed.">		if (min &lt; max) {</span>
+<span class="fc" id="L195">			value = value*(max - min) + min;</span>
+<span class="pc bpc" id="L196" title="1 of 2 branches missed.">			if (value &gt;= max) {</span>
+<span class="nc" id="L197">				value = nextDown(value);</span>
+			}
+		}
+
+<span class="fc" id="L201">		return value;</span>
+	}
+
+	/**
+	 * Returns a pseudo-random, uniformly distributed double value between
+	 * min (inclusively) and max (exclusively).
+	 *
+	 * @param random the random engine used for creating the random number.
+	 * @param min lower bound for generated double value (inclusively)
+	 * @param max upper bound for generated double value (exclusively)
+	 * @return a random double greater than or equal to {@code min} and less
+	 *         than to {@code max}
+	 * @throws NullPointerException if the given {@code random}
+	 *         engine is {@code null}.
+	 */
+	public static double nextDouble(
+		final Random random,
+		final double min, final double max
+	) {
+<span class="pc bpc" id="L220" title="1 of 2 branches missed.">		if (min &gt;= max) {</span>
+<span class="nc" id="L221">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L222">				&quot;min &gt;= max: %f &gt;= %f.&quot;, min, max</span>
+			));
+		}
+
+<span class="fc" id="L226">		double value = random.nextDouble();</span>
+<span class="pc bpc" id="L227" title="1 of 2 branches missed.">		if (min &lt; max) {</span>
+<span class="fc" id="L228">			value = value*(max - min) + min;</span>
+<span class="fc bfc" id="L229" title="All 2 branches covered.">			if (value &gt;= max) {</span>
+<span class="fc" id="L230">				value = nextDown(value);</span>
+			}
+		}
+
+<span class="fc" id="L234">		return value;</span>
+	}
+
+	/**
+	 * Returns a pseudo-random, uniformly distributed int value between 0
+	 * (inclusive) and the specified value (exclusive), drawn from the given
+	 * random number generator's sequence.
+	 *
+	 * @param random the random engine used for creating the random number.
+	 * @param n the bound on the random number to be returned. Must be
+	 *        positive.
+	 * @return the next pseudo-random, uniformly distributed int value
+	 *         between 0 (inclusive) and n (exclusive) from the given random
+	 *         number generator's sequence
+	 * @throws IllegalArgumentException if n is smaller than 1.
+	 * @throws NullPointerException if the given {@code random}
+	 *         engine of the maximal value {@code n} is {@code null}.
+	 */
+	public static BigInteger nextBigInteger(
+		final Random random,
+		final BigInteger n
+	) {
+<span class="pc bpc" id="L256" title="1 of 2 branches missed.">		if (n.compareTo(BigInteger.ONE) &lt; 0) {</span>
+<span class="nc" id="L257">			throw new IllegalArgumentException(format(</span>
+				&quot;n is smaller than one: %d&quot;, n
+			));
+		}
+
+<span class="fc" id="L262">		BigInteger result = null;</span>
+<span class="fc bfc" id="L263" title="All 2 branches covered.">		if (n.bitLength() &lt;= Integer.SIZE - 1) {</span>
+<span class="fc" id="L264">			result = BigInteger.valueOf(random.nextInt(n.intValue()));</span>
+<span class="fc bfc" id="L265" title="All 2 branches covered.">		} else if (n.bitLength() &lt;= Long.SIZE - 1) {</span>
+<span class="fc" id="L266">			result = BigInteger.valueOf(nextLong(random, n.longValue()));</span>
+		} else {
+			do {
+<span class="fc" id="L269">				result = new BigInteger(n.bitLength(), random);</span>
+<span class="fc bfc" id="L270" title="All 2 branches covered.">			} while (result.compareTo(n) &gt;= 0);</span>
+		}
+
+<span class="fc" id="L273">		return result;</span>
+	}
+
+	/**
+	 * Returns a pseudo-random, uniformly distributed int value between min
+	 * and max (min and max included).
+	 *
+	 * @param random the random engine to use for calculating the random
+	 *        long value
+	 * @param min lower bound for generated long integer (inclusively)
+	 * @param max upper bound for generated long integer (inclusively)
+	 * @return a random long integer greater than or equal to {@code min}
+	 *         and less than or equal to {@code max}
+	 * @throws IllegalArgumentException if {@code min &gt;= max}
+	 * @throws NullPointerException if one of the given parameters
+	 *         are {@code null}.
+	 */
+	public static BigInteger nextBigInteger(
+		final Random random,
+		final BigInteger min, final BigInteger max
+	) {
+<span class="nc bnc" id="L294" title="All 2 branches missed.">		if (min.compareTo(max) &gt;= 0) {</span>
+<span class="nc" id="L295">			throw new IllegalArgumentException(format(</span>
+				&quot;min &gt;= max: %d &gt;= %d.&quot;, min, max
+			));
+		}
+
+<span class="nc" id="L300">		final BigInteger n = max.subtract(min).add(BigInteger.ONE);</span>
+<span class="nc" id="L301">		return nextBigInteger(random, n).add(min);</span>
+	}
+
+	public static BigInteger nextBigInteger(final Random random) {
+<span class="fc" id="L305">		return new BigInteger(100, random);</span>
+	}
+
+	public static String nextString(final Random random, final int length) {
+<span class="fc" id="L309">		final char[] chars = new char[length];</span>
+<span class="fc bfc" id="L310" title="All 2 branches covered.">		for (int i = 0; i &lt; length; ++i) {</span>
+<span class="fc" id="L311">			chars[i] = nextCharacter(random);</span>
+		}
+
+<span class="fc" id="L314">		return new String(chars);</span>
+	}
+
+	public static String nextString(final Random random) {
+<span class="fc" id="L318">		return nextString(random, nextInt(random, 5, 20));</span>
+	}
+
+	public static BigDecimal nextBigDecimal(final Random random) {
+<span class="fc" id="L322">		final StringBuilder out = new StringBuilder();</span>
+<span class="fc bfc" id="L323" title="All 2 branches covered.">		for (int i = 0; i &lt; 10; ++i) {</span>
+<span class="fc" id="L324">			out.append(Long.toString(abs(random.nextLong())));</span>
+		}
+<span class="fc" id="L326">		out.append(&quot;.&quot;);</span>
+<span class="fc bfc" id="L327" title="All 2 branches covered.">		for (int i = 0; i &lt; 20; ++i) {</span>
+<span class="fc" id="L328">			out.append(Long.toString(abs(random.nextLong())));</span>
+		}
+
+<span class="fc" id="L331">		return new BigDecimal(out.toString());</span>
+	}
+
+	/*
+	 * Conversion methods used by the 'Random' engine from the JDK.
+	 */
+
+	public static float toFloat(final int a) {
+<span class="fc" id="L339">		return (a &gt;&gt;&gt; 8)/((float)(1 &lt;&lt; 24));</span>
+	}
+
+	public static float toFloat(final long a) {
+<span class="fc" id="L343">		return (int)(a &gt;&gt;&gt; 40)/((float)(1 &lt;&lt; 24));</span>
+	}
+
+	public static double toDouble(final long a) {
+<span class="fc" id="L347">		return (((a &gt;&gt;&gt; 38) &lt;&lt; 27) + (((int)a) &gt;&gt;&gt; 5))/(double)(1L &lt;&lt; 53);</span>
+	}
+
+	public static double toDouble(final int a, final int b) {
+<span class="fc" id="L351">		return (((long)(a &gt;&gt;&gt; 6) &lt;&lt; 27) + (b &gt;&gt;&gt; 5))/(double)(1L &lt;&lt; 53);</span>
+	}
+
+	/*
+	 * Conversion methods used by the Apache Commons BitStreamGenerator.
+	 */
+
+	public static float toFloat2(final int a) {
+<span class="fc" id="L359">		return (a &gt;&gt;&gt; 9)*0x1.0p-23f;</span>
+	}
+
+	public static float toFloat2(final long a) {
+<span class="fc" id="L363">		return (int)(a &gt;&gt;&gt; 41)*0x1.0p-23f;</span>
+	}
+
+	public static double toDouble2(final long a) {
+<span class="fc" id="L367">		return (a &amp; 0xFFFFFFFFFFFFFL)*0x1.0p-52d;</span>
+	}
+
+	public static double toDouble2(final int a, final int b) {
+<span class="fc" id="L371">		return (((long)(a &gt;&gt;&gt; 6) &lt;&lt; 26) | (b &gt;&gt;&gt; 6))*0x1.0p-52d;</span>
+	}
+
+	/**
+	 * Create an {@code IntStream} which creates random indexes within the
+	 * given range and the index probability.
+	 *
+	 * @since 3.0
+	 *
+	 * @param random the random engine used for calculating the random
+	 *        indexes
+	 * @param start the start index (inclusively)
+	 * @param end the end index (exclusively)
+	 * @param p the index selection probability
+	 * @return an new random index stream
+	 * @throws IllegalArgumentException if {@code p} is not a
+	 *         valid probability.
+	 */
+	public static IntStream indexes(
+		final Random random,
+		final int start,
+		final int end,
+		final double p
+	) {
+<span class="fc" id="L395">		probability(p);</span>
+<span class="fc" id="L396">		final int P = probability.toInt(p);</span>
+
+<span class="fc bfc" id="L398" title="All 2 branches covered.">		return equals(p, 0, 1E-20)</span>
+<span class="fc" id="L399">			? IntStream.empty()</span>
+<span class="fc bfc" id="L400" title="All 2 branches covered.">			: equals(p, 1, 1E-20)</span>
+<span class="fc" id="L401">				? IntStream.range(start, end)</span>
+<span class="fc" id="L402">				: IntStream.range(start, end)</span>
+<span class="fc" id="L403">					.filter(i -&gt; random.nextInt() &lt; P);</span>
+	}
+
+	private static
+	boolean equals(final double a, final double b, final double delta) {
+<span class="fc bfc" id="L408" title="All 2 branches covered.">		return abs(a - b) &lt;= delta;</span>
+	}
+
+	/**
+	 * Create an {@code IntStream} which creates random indexes within the
+	 * given range and the index probability.
+	 *
+	 * @since 3.0
+	 *
+	 * @param random the random engine used for calculating the random
+	 *        indexes
+	 * @param n the end index (exclusively). The start index is zero.
+	 * @param p the index selection probability
+	 * @return an new random index stream
+	 * @throws IllegalArgumentException if {@code p} is not a
+	 *         valid probability.
+	 * @throws NullPointerException if the given {@code random}
+	 *         engine is {@code null}.
+	 */
+	public static IntStream indexes(
+		final Random random,
+		final int n,
+		final double p
+	) {
+<span class="fc" id="L432">		return indexes(random, 0, n, p);</span>
+	}
+
+	/**
+	 * Create a new &lt;em&gt;seed&lt;/em&gt; byte array of the given length.
+	 *
+	 * @see #seed(byte[])
+	 * @see #seed()
+	 *
+	 * @param length the length of the returned byte array.
+	 * @return a new &lt;em&gt;seed&lt;/em&gt; byte array of the given length
+	 * @throws NegativeArraySizeException if the given length is smaller
+	 *         than zero.
+	 */
+	public static byte[] seedBytes(final int length) {
+<span class="fc" id="L447">		return seed(new byte[length]);</span>
+	}
+
+	/**
+	 * Fills the given byte array with random bytes, created by successive
+	 * calls of the {@link #seed()} method.
+	 *
+	 * @see #seed()
+	 *
+	 * @param seed the byte array seed to fill with random bytes.
+	 * @return the given byte array, for method chaining.
+	 * @throws NullPointerException if the {@code seed} array is
+	 *         {@code null}.
+	 */
+	public static byte[] seed(final byte[] seed) {
+<span class="fc bfc" id="L462" title="All 2 branches covered.">		for (int i = 0, len = seed.length; i &lt; len;) {</span>
+<span class="fc" id="L463">			int n = Math.min(len - i, Long.SIZE/Byte.SIZE);</span>
+
+<span class="fc bfc" id="L465" title="All 2 branches covered.">			for (long x = seed(); n-- &gt; 0; x &gt;&gt;= Byte.SIZE) {</span>
+<span class="fc" id="L466">				seed[i++] = (byte)x;</span>
+			}
+<span class="fc" id="L468">		}</span>
+
+<span class="fc" id="L470">		return seed;</span>
+	}
+
+	/**
+	 * Calculating a 64 bit seed value which can be used for initializing
+	 * PRNGs. This method uses a combination of {@code System.nanoTime()}
+	 * and {@code new Object().hashCode()} calls to create a reasonable safe
+	 * seed value:
+	 * &lt;p&gt;
+	 * &lt;pre&gt;{@code
+	 * public static long seed() {
+	 *     return seed(System.nanoTime());
+	 * }
+	 * }&lt;/pre&gt;
+	 * &lt;p&gt;
+	 * This method passes all of the statistical tests of the
+	 * &lt;a href=&quot;http://www.phy.duke.edu/~rgb/General/dieharder.php&quot;&gt;
+	 * dieharder&lt;/a&gt; test suite&amp;mdash;executed on a linux machine with
+	 * JDK version 1.7. &lt;em&gt;Since there is no prove that this will the case
+	 * for every Java version and OS, it is recommended to only use this
+	 * method for seeding other PRNGs.&lt;/em&gt;
+	 *
+	 * @see #seed(long)
+	 *
+	 * @return the random seed value.
+	 */
+	public static long seed() {
+<span class="fc" id="L497">		return seed(System.nanoTime());</span>
+	}
+
+	/**
+	 * Uses the given {@code base} value to create a reasonable safe seed
+	 * value. This is done by combining it with values of
+	 * {@code new Object().hashCode()}:
+	 * &lt;p&gt;
+	 * &lt;pre&gt;{@code
+	 * public static long seed(final long base) {
+	 *     final long objectHashSeed = ((long)(new Object().hashCode()) &lt;&lt; 32) |
+	 *                                         new Object().hashCode();
+	 *     long seed = base^objectHashSeed;
+	 *     seed ^= seed &lt;&lt; 17;
+	 *     seed ^= seed &gt;&gt;&gt; 31;
+	 *     seed ^= seed &lt;&lt; 8;
+	 *     return seed;
+	 * }
+	 * }&lt;/pre&gt;
+	 *
+	 * @param base the base value of the seed to create
+	 * @return the created seed value.
+	 */
+	public static long seed(final long base) {
+<span class="fc" id="L521">		return mix(base, objectHashSeed());</span>
+	}
+
+	private static long mix(final long a, final long b) {
+<span class="fc" id="L525">		long c = a^b;</span>
+<span class="fc" id="L526">		c ^= c &lt;&lt; 17;</span>
+<span class="fc" id="L527">		c ^= c &gt;&gt;&gt; 31;</span>
+<span class="fc" id="L528">		c ^= c &lt;&lt; 8;</span>
+<span class="fc" id="L529">		return c;</span>
+	}
+
+	private static long objectHashSeed() {
+<span class="fc" id="L533">		return (long)new Object().hashCode() &lt;&lt; 32 | new Object().hashCode();</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

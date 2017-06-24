@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>IntRange.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.util</a> &gt; <span class="el_source">IntRange.java</span></div><h1>IntRange.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.util;
+
+import static java.lang.String.format;
+
+import java.io.Serializable;
+
+/**
+ * Integer range class.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @version 3.2
+ * @since 3.2
+ */
+public final class IntRange implements Serializable {
+
+	private static final long serialVersionUID = 1L;
+
+	private final int _min;
+	private final int _max;
+
+<span class="fc" id="L40">	private IntRange(final int min, final int max) {</span>
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">		if (min &gt; max) {</span>
+<span class="nc" id="L42">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L43">				&quot;Min greater than max: %s &gt; %s&quot;, min, max</span>
+			));
+		}
+
+<span class="fc" id="L47">		_min = min;</span>
+<span class="fc" id="L48">		_max = max;</span>
+<span class="fc" id="L49">	}</span>
+
+	/**
+	 * Return the minimum value of the integer range.
+	 *
+	 * @return the minimum value of the integer range
+	 */
+	public int getMin() {
+<span class="fc" id="L57">		return _min;</span>
+	}
+
+	/**
+	 * Return the maximum value of the integer range.
+	 *
+	 * @return the maximum value of the integer range
+	 */
+	public int getMax() {
+<span class="fc" id="L66">		return _max;</span>
+	}
+
+	/**
+	 * Create a new {@code IntRange} object with the given {@code min} and
+	 * {@code max} values.
+	 *
+	 * @param min the lower bound of the integer range
+	 * @param max the upper bound of the integer range
+	 * @return a new {@code IntRange} object
+	 * @throws IllegalArgumentException if {@code min &gt; max}
+	 */
+	public static IntRange of(final int min, final int max) {
+<span class="fc" id="L79">		return new IntRange(min, max);</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L84">		return _min + 31*_max;</span>
+	}
+
+	@Override
+	public boolean equals(final Object other) {
+<span class="fc bfc" id="L89" title="All 6 branches covered.">		return other instanceof IntRange &amp;&amp;</span>
+			_min == ((IntRange)other)._min &amp;&amp;
+			_max == ((IntRange)other)._max;
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L96">		return &quot;[&quot; + _min + &quot;, &quot; + _max + &quot;]&quot;;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

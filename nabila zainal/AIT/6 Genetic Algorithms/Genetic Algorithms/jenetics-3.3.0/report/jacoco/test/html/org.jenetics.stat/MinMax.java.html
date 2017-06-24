@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MinMax.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.stat</a> &gt; <span class="el_source">MinMax.java</span></div><h1>MinMax.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.stat;
+
+import static java.util.Objects.requireNonNull;
+
+import java.util.Comparator;
+import java.util.function.Consumer;
+import java.util.stream.Collector;
+
+/**
+ * This &lt;i&gt;consumer&lt;/i&gt; class is used for calculating the min and max value
+ * according to the given {@code Comparator}.
+ * &lt;p&gt;
+ * This class is designed to work with (though does not require) streams. For
+ * example, you can compute minimum and maximum values with:
+ * &lt;pre&gt;{@code
+ * final Stream&lt;Integer&gt; stream = ...
+ * final MinMax&lt;Integer&gt; minMax = stream.collect(
+ *         MinMax::of,
+ *         MinMax::accept,
+ *         MinMax::combine
+ *     );
+ * }&lt;/pre&gt;
+ *
+ * &lt;p&gt;
+ * &lt;b&gt;Implementation note:&lt;/b&gt;
+ * &lt;i&gt;This implementation is not thread safe. However, it is safe to use on a
+ * parallel stream, because the parallel implementation of
+ * {@link java.util.stream.Stream#collect Stream.collect()}provides the
+ * necessary partitioning, isolation, and merging of results for safe and
+ * efficient parallel execution.&lt;/i&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.0
+ * @version 3.0
+ */
+public final class MinMax&lt;C&gt; implements Consumer&lt;C&gt; {
+
+	private final Comparator&lt;? super C&gt; _comparator;
+
+	private C _min;
+	private C _max;
+<span class="fc" id="L61">	private long _count = 0L;</span>
+
+<span class="fc" id="L63">	private MinMax(final Comparator&lt;? super C&gt; comparator) {</span>
+<span class="fc" id="L64">		_comparator = requireNonNull(comparator);</span>
+<span class="fc" id="L65">	}</span>
+
+	/**
+	 * Accept the element for min-max calculation.
+	 *
+	 * @param object the element to use for min-max calculation
+	 */
+	@Override
+	public void accept(final C object) {
+<span class="fc" id="L74">		_min = min(_comparator, _min, object);</span>
+<span class="fc" id="L75">		_max = max(_comparator, _max, object);</span>
+<span class="fc" id="L76">		++_count;</span>
+<span class="fc" id="L77">	}</span>
+
+	/**
+	 * Combine two {@code MinMax} objects.
+	 *
+	 * @param other the other {@code MinMax} object to combine
+	 * @return {@code this}
+	 * @throws java.lang.NullPointerException if the {@code other} object is
+	 *         {@code null}.
+	 */
+	public MinMax&lt;C&gt; combine(final MinMax&lt;C&gt; other) {
+<span class="fc" id="L88">		_min = min(_comparator, _min, other._min);</span>
+<span class="fc" id="L89">		_max = max(_comparator, _max, other._max);</span>
+<span class="fc" id="L90">		_count += other._count;</span>
+
+<span class="fc" id="L92">		return this;</span>
+	}
+
+	/**
+	 * Return the current minimal object or {@code null} if no element has been
+	 * accepted yet.
+	 *
+	 * @return the current minimal object
+	 */
+	public C getMin() {
+<span class="fc" id="L102">		return _min;</span>
+	}
+
+	/**
+	 * Return the current maximal object or {@code null} if no element has been
+	 * accepted yet.
+	 *
+	 * @return the current maximal object
+	 */
+	public C getMax() {
+<span class="fc" id="L112">		return _max;</span>
+	}
+
+	/**
+	 * Returns the count of values recorded.
+	 *
+	 * @return the count of recorded values
+	 */
+	public long getCount() {
+<span class="fc" id="L121">		return _count;</span>
+	}
+
+	/* *************************************************************************
+	 *  Some static helper methods.
+	 * ************************************************************************/
+
+	/**
+	 * Return the minimum of two values, according the given comparator.
+	 * {@code null} values are allowed.
+	 *
+	 * @param comp the comparator used for determining the min value
+	 * @param a the first value to compare
+	 * @param b the second value to compare
+	 * @param &lt;T&gt; the type of the compared objects
+	 * @return the minimum value, or {@code null} if both values are {@code null}.
+	 *         If only one value is {@code null}, the non {@code null} values is
+	 *         returned.
+	 */
+	public static &lt;T&gt; T
+	min(final Comparator&lt;? super T&gt; comp, final T a, final T b) {
+<span class="fc bfc" id="L142" title="All 6 branches covered.">		return a != null ? b != null ? comp.compare(a, b) &lt;= 0 ? a : b : a : b;</span>
+	}
+
+	/**
+	 * Return the maximum of two values, according the given comparator.
+	 * {@code null} values are allowed.
+	 *
+	 * @param comp the comparator used for determining the max value
+	 * @param a the first value to compare
+	 * @param b the second value to compare
+	 * @param &lt;T&gt; the type of the compared objects
+	 * @return the maximum value, or {@code null} if both values are {@code null}.
+	 *         If only one value is {@code null}, the non {@code null} values is
+	 *         returned.
+	 */
+	public static &lt;T&gt; T
+	max(final Comparator&lt;? super T&gt; comp, final T a, final T b) {
+<span class="fc bfc" id="L159" title="All 6 branches covered.">		return a != null ? b != null ? comp.compare(a, b) &gt;= 0 ? a : b : a : b;</span>
+	}
+
+
+	/* *************************************************************************
+	 *  Some static factory methods.
+	 * ************************************************************************/
+
+	/**
+	 * Return a {@code Collector} which calculates the minimum and maximum value.
+	 * The given {@code comparator} is used for comparing two objects.
+	 *
+	 * &lt;pre&gt;{@code
+	 * final Comparator&lt;SomeObject&gt; comparator = ...
+	 * final Stream&lt;SomeObject&gt; stream = ...
+	 * final MinMax&lt;SomeObject&gt; moments = stream
+	 *     .collect(doubleMoments.toMinMax(comparator));
+	 * }&lt;/pre&gt;
+	 *
+	 * @param comparator the {@code Comparator} to use
+	 * @param &lt;T&gt; the type of the input elements
+	 * @return a {@code Collector} implementing the min-max reduction
+	 * @throws java.lang.NullPointerException if the given {@code mapper} is
+	 *         {@code null}
+	 */
+	public static &lt;T&gt;
+	Collector&lt;T, ?, MinMax&lt;T&gt;&gt; toMinMax(final Comparator&lt;? super T&gt; comparator) {
+<span class="fc" id="L186">		return Collector.of(</span>
+			() -&gt; MinMax.of(comparator),
+			MinMax::accept,
+			MinMax::combine
+		);
+	}
+
+	/**
+	 * Return a {@code Collector} which calculates the minimum and maximum value.
+	 * The &lt;i&gt;reducing&lt;/i&gt; objects must be comparable.
+	 *
+	 * &lt;pre&gt;{@code
+	 * final Stream&lt;SomeObject&gt; stream = ...
+	 * final MinMax&lt;SomeObject&gt; moments = stream
+	 *     .collect(doubleMoments.toMinMax(comparator));
+	 * }&lt;/pre&gt;
+	 *
+	 * @param &lt;C&gt; the type of the input elements
+	 * @return a {@code Collector} implementing the min-max reduction
+	 * @throws java.lang.NullPointerException if the given {@code mapper} is
+	 *         {@code null}
+	 */
+	public static &lt;C extends Comparable&lt;? super C&gt;&gt;
+	Collector&lt;C, ?, MinMax&lt;C&gt;&gt; toMinMax() {
+<span class="fc" id="L210">		return toMinMax((a, b) -&gt; a.compareTo(b));</span>
+	}
+
+	/**
+	 * Create a new {@code MinMax} &lt;i&gt;consumer&lt;/i&gt; with the given
+	 * {@link java.util.Comparator}.
+	 *
+	 * @param comparator the comparator used for comparing two elements
+	 * @param &lt;T&gt; the element type
+	 * @return a new {@code MinMax} &lt;i&gt;consumer&lt;/i&gt;
+	 * @throws java.lang.NullPointerException if the {@code comparator} is
+	 *         {@code null}.
+	 */
+	public static &lt;T&gt; MinMax&lt;T&gt; of(final Comparator&lt;? super T&gt; comparator) {
+<span class="fc" id="L224">		return new MinMax&lt;&gt;(comparator);</span>
+	}
+
+	/**
+	 * Create a new {@code MinMax} &lt;i&gt;consumer&lt;/i&gt;.
+	 *
+	 * @param &lt;C&gt; the element type
+	 * @return a new {@code MinMax} &lt;i&gt;consumer&lt;/i&gt;
+	 */
+	public static &lt;C extends Comparable&lt;? super C&gt;&gt; MinMax&lt;C&gt; of() {
+<span class="fc" id="L234">		return of((a, b) -&gt; a.compareTo(b));</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>ArrayProxySeq.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.collection</a> &gt; <span class="el_source">ArrayProxySeq.java</span></div><h1>ArrayProxySeq.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.collection;
+
+import static java.util.Objects.requireNonNull;
+
+import java.io.Serializable;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Spliterator;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+import org.jenetics.util.Seq;
+
+/**
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.4
+ * @version 3.0
+ */
+public abstract class ArrayProxySeq&lt;T, P extends ArrayProxy&lt;T, ?, ?&gt;&gt;
+	implements
+		Seq&lt;T&gt;,
+		Serializable
+{
+	private static final long serialVersionUID = 1L;
+
+	public final P proxy;
+
+<span class="fc" id="L49">	public ArrayProxySeq(final P proxy) {</span>
+<span class="fc" id="L50">		this.proxy = requireNonNull(proxy, &quot;ArrayProxy must not be null.&quot;);</span>
+<span class="fc" id="L51">	}</span>
+
+	@Override
+	public final T get(final int index) {
+<span class="fc" id="L55">		return proxy.get(index);</span>
+	}
+
+	@Override
+	public Stream&lt;T&gt; stream() {
+<span class="fc" id="L60">		return proxy.stream();</span>
+	}
+
+	@Override
+	public Stream&lt;T&gt; parallelStream() {
+<span class="nc" id="L65">		return proxy.parallelStream();</span>
+	}
+
+	@Override
+	public Spliterator&lt;T&gt; spliterator() {
+<span class="nc" id="L70">		return proxy.spliterator();</span>
+	}
+
+	@Override
+	public void forEach(final Consumer&lt;? super T&gt; consumer) {
+<span class="fc" id="L75">		requireNonNull(consumer, &quot;The consumer must not be null.&quot;);</span>
+
+<span class="fc bfc" id="L77" title="All 2 branches covered.">		for (int i = proxy.start; i &lt; proxy.end; ++i) {</span>
+<span class="fc" id="L78">			consumer.accept(proxy.__get__(i));</span>
+		}
+<span class="fc" id="L80">	}</span>
+
+	@Override
+	public boolean forAll(final Predicate&lt;? super T&gt; predicate) {
+<span class="fc" id="L84">		requireNonNull(predicate, &quot;Predicate&quot;);</span>
+
+<span class="fc" id="L86">		boolean valid = true;</span>
+<span class="fc bfc" id="L87" title="All 4 branches covered.">		for (int i = proxy.start; i &lt; proxy.end &amp;&amp; valid; ++i) {</span>
+<span class="fc" id="L88">			valid = predicate.test(proxy.__get__(i));</span>
+		}
+<span class="fc" id="L90">		return valid;</span>
+	}
+
+	@Override
+	public int indexWhere(
+		final Predicate&lt;? super T&gt; predicate,
+		final int start,
+		final int end
+	) {
+<span class="fc" id="L99">		proxy.checkIndex(start, end);</span>
+<span class="fc" id="L100">		requireNonNull(predicate, &quot;Predicate&quot;);</span>
+
+<span class="fc" id="L102">		int index = -1;</span>
+
+<span class="fc" id="L104">		for (int i = start + proxy.start, n = end + proxy.start;</span>
+<span class="fc bfc" id="L105" title="All 4 branches covered.">				i &lt; n &amp;&amp; index == -1; ++i)</span>
+		{
+<span class="fc bfc" id="L107" title="All 2 branches covered.">			if (predicate.test(proxy.__get__(i))) {</span>
+<span class="fc" id="L108">				index = i - proxy.start;</span>
+			}
+		}
+
+<span class="fc" id="L112">		return index;</span>
+	}
+
+	@Override
+	public int lastIndexWhere(
+		final Predicate&lt;? super T&gt; predicate,
+		final int start,
+		final int end
+	) {
+<span class="fc" id="L121">		proxy.checkIndex(start, end);</span>
+<span class="fc" id="L122">		requireNonNull(predicate, &quot;Predicate must not be null.&quot;);</span>
+
+<span class="fc" id="L124">		int index = -1;</span>
+
+<span class="fc" id="L126">		for (int i = end + proxy.start;</span>
+<span class="fc bfc" id="L127" title="All 4 branches covered.">			--i &gt;= start + proxy.start &amp;&amp; index == -1;)</span>
+		{
+<span class="fc bfc" id="L129" title="All 2 branches covered.">			if (predicate.test(proxy.__get__(i))) {</span>
+<span class="fc" id="L130">				index = i - proxy.start;</span>
+			}
+		}
+
+<span class="fc" id="L134">		return index;</span>
+	}
+
+	@Override
+	public int length() {
+<span class="fc" id="L139">		return proxy.length;</span>
+	}
+
+	@Override
+	public Iterator&lt;T&gt; iterator() {
+<span class="fc" id="L144">		return new ArrayProxyIterator&lt;&gt;(proxy);</span>
+	}
+
+	public ListIterator&lt;T&gt; listIterator() {
+<span class="nc" id="L148">		return new ArrayProxyIterator&lt;&gt;(proxy);</span>
+	}
+
+	@Override
+	public List&lt;T&gt; asList() {
+<span class="fc" id="L153">		return new ArrayProxyList&lt;&gt;(proxy);</span>
+	}
+
+	@Override
+	public Object[] toArray() {
+<span class="fc" id="L158">		return asList().toArray();</span>
+	}
+
+	@Override
+	public T[] toArray(final T[] array) {
+<span class="fc" id="L163">		return asList().toArray(array);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L168">		return toString(&quot;[&quot;, &quot;,&quot;, &quot;]&quot;);</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="nc" id="L173">		return Seq.hashCode(this);</span>
+	}
+
+	@Override
+	public boolean equals(final Object object) {
+<span class="pc bpc" id="L178" title="1 of 2 branches missed.">		if (object == this) {</span>
+<span class="nc" id="L179">			return true;</span>
+		}
+<span class="pc bpc" id="L181" title="1 of 2 branches missed.">		if (!(object instanceof Seq&lt;?&gt;)) {</span>
+<span class="nc" id="L182">			return false;</span>
+		}
+
+<span class="fc" id="L185">		final Seq&lt;?&gt; seq = (Seq&lt;?&gt;)object;</span>
+<span class="fc" id="L186">		return Seq.equals(this, seq);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

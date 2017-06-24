@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>LinearRankSelector.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">LinearRankSelector.java</span></div><h1>LinearRankSelector.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.lang.String.format;
+
+import org.jenetics.internal.util.Hash;
+
+/**
+ * &lt;p&gt;
+ * In linear-ranking selection the individuals are sorted according to their
+ * fitness values. The rank &lt;i&gt;N&lt;/i&gt; is assignee to the best individual and the
+ * rank 1 to the worst individual. The selection probability &lt;i&gt;P(i)&lt;/i&gt;  of
+ * individual &lt;i&gt;i&lt;/i&gt; is linearly assigned to the individuals according to
+ * their rank.
+ * &lt;/p&gt;
+ * &lt;p&gt;&lt;img
+ *        src=&quot;doc-files/linear-rank-selector.gif&quot;
+ *        alt=&quot;P(i)=\frac{1}{N}\left(n^{-}+\left(n^{+}-n^{-}\right)\frac{i-1}{N-1}\right)&quot;
+ *     &gt;
+ * &lt;/p&gt;
+ *
+ * Here &lt;i&gt;n&lt;/i&gt;&lt;sup&gt;&lt;i&gt;-&lt;/i&gt;&lt;/sup&gt;/&lt;i&gt;N&lt;/i&gt; is the probability of the worst
+ * individual to be	selected and &lt;i&gt;n&lt;/i&gt;&lt;sup&gt;&lt;i&gt;+&lt;/i&gt;&lt;/sup&gt;/&lt;i&gt;N&lt;/i&gt; the
+ * probability of the best individual to be selected. As the population size is
+ * held constant, the conditions &lt;i&gt;n&lt;/i&gt;&lt;sup&gt;&lt;i&gt;+&lt;/i&gt;&lt;/sup&gt; = 2 - &lt;i&gt;n&lt;/i&gt;&lt;sup&gt;&lt;i&gt;-&lt;/i&gt;&lt;/sup&gt;
+ * and &lt;i&gt;n&lt;/i&gt;&lt;sup&gt;&lt;i&gt;-&lt;/i&gt;&lt;/sup&gt; &amp;gt;= 0 must be fulfilled. Note that all individuals
+ * get a different rank, i.e., a different selection probability, even if the
+ * have the same fitness value. &lt;p&gt;
+ *
+ * &lt;i&gt;
+ * T. Blickle, L. Thiele, A comparison of selection schemes used
+ * in evolutionary algorithms, Technical Report, ETH Zurich, 1997, page 37.
+ * &lt;a href=&quot;http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.15.9584&amp;rank=1&quot;&gt;
+ *	http://citeseer.ist.psu.edu/blickle97comparison.html
+ * &lt;/a&gt;
+ * &lt;/i&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 2.0
+ */
+<span class="pc bpc" id="L60" title="1 of 2 branches missed.">public final class LinearRankSelector&lt;</span>
+	G extends Gene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+	extends ProbabilitySelector&lt;G, C&gt;
+{
+	private final double _nminus;
+	private final double _nplus;
+
+	/**
+	 * Create a new LinearRankSelector with the given values for {@code nminus}.
+	 *
+	 * @param nminus {@code nminus/N} is the probability of the worst phenotype
+	 *         to be selected.
+	 * @throws IllegalArgumentException if {@code nminus &lt; 0}.
+	 */
+	public LinearRankSelector(final double nminus) {
+<span class="fc" id="L77">		super(true);</span>
+
+<span class="pc bpc" id="L79" title="1 of 2 branches missed.">		if (nminus &lt; 0) {</span>
+<span class="nc" id="L80">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L81">				&quot;nminus is smaller than zero: %s&quot;, nminus</span>
+			));
+		}
+
+<span class="fc" id="L85">		_nminus = nminus;</span>
+<span class="fc" id="L86">		_nplus = 2 - _nminus;</span>
+<span class="fc" id="L87">	}</span>
+
+	/**
+	 * Create a new LinearRankSelector with {@code nminus := 0.5}.
+	 */
+	public LinearRankSelector() {
+<span class="fc" id="L93">		this(0.5);</span>
+<span class="fc" id="L94">	}</span>
+
+	/**
+	 * This method sorts the population in descending order while calculating the
+	 * selection probabilities. (The method {@link Population#populationSort()} is called
+	 * by this method.)
+	 */
+	@Override
+	protected double[] probabilities(
+		final Population&lt;G, C&gt; population,
+		final int count
+	) {
+<span class="pc bpc" id="L106" title="2 of 4 branches missed.">		assert population != null : &quot;Population must not be null. &quot;;</span>
+<span class="pc bpc" id="L107" title="2 of 4 branches missed.">		assert !population.isEmpty() : &quot;Population is empty.&quot;;</span>
+<span class="pc bpc" id="L108" title="2 of 4 branches missed.">		assert count &gt; 0 : &quot;Population to select must be greater than zero. &quot;;</span>
+
+<span class="fc" id="L110">		final double N = population.size();</span>
+<span class="fc" id="L111">		final double[] probabilities = new double[population.size()];</span>
+
+<span class="fc bfc" id="L113" title="All 2 branches covered.">		if (N == 1) {</span>
+<span class="fc" id="L114">			probabilities[0] = 1;</span>
+		} else {
+<span class="fc bfc" id="L116" title="All 2 branches covered.">			for (int i = probabilities.length; --i &gt;= 0; ) {</span>
+<span class="fc" id="L117">				probabilities[probabilities.length - i - 1] =</span>
+					(_nminus + (_nplus - _nminus)*i/(N - 1))/N;
+			}
+		}
+
+<span class="fc" id="L122">		return probabilities;</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L127">		return Hash.of(getClass()).and(_nminus).and(_nplus).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc bfc" id="L132" title="All 2 branches covered.">		return obj instanceof LinearRankSelector &amp;&amp;</span>
+<span class="pc bpc" id="L133" title="1 of 2 branches missed.">			eq(((LinearRankSelector)obj)._nminus, _nminus) &amp;&amp;</span>
+<span class="pc bpc" id="L134" title="1 of 2 branches missed.">			eq(((LinearRankSelector)obj)._nplus, _nplus);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L139">		return format(</span>
+			&quot;%s[(n-)=%f, (n+)=%f]&quot;,
+<span class="fc" id="L141">			getClass().getSimpleName(), _nminus, _nplus</span>
+		);
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

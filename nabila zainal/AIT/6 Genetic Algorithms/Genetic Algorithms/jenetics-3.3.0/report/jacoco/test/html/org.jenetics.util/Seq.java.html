@@ -1,0 +1,803 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Seq.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.util</a> &gt; <span class="el_source">Seq.java</span></div><h1>Seq.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.util;
+
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
+import java.util.RandomAccess;
+import java.util.Spliterator;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Collector;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+
+import org.jenetics.internal.collection.SeqSpliterator;
+
+/**
+ * General interface for a ordered, fixed sized, object sequence.
+ * &lt;br&gt;
+ * Use the {@link #asList()} method to work together with the
+ * &lt;a href=&quot;http://download.oracle.com/javase/6/docs/technotes/guides/collections/index.html&quot;&gt;
+ * Java Collection Framework&lt;/a&gt;.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.3
+ */
+public interface Seq&lt;T&gt; extends Iterable&lt;T&gt; {
+
+	/**
+	 * Return the value at the given {@code index}.
+	 *
+	 * @param index index of the element to return.
+	 * @return the value at the given {@code index}.
+	 * @throws IndexOutOfBoundsException if the index is out of range
+	 *         (index &amp;lt; 0 || index &amp;gt;= size()).
+	 */
+	public T get(final int index);
+
+	/**
+	 * Return the length of this sequence. Once the sequence is created, the
+	 * length can't be changed.
+	 *
+	 * @return the length of this sequence.
+	 */
+	public int length();
+
+	/**
+	 * @see #length()
+	 * @return the size of this sequence
+	 */
+	public default int size() {
+<span class="nc" id="L77">		return length();</span>
+	}
+
+	/**
+	 * Returns {@code true} if this sequence contains no elements.
+	 *
+	 * @since 3.3
+	 *
+	 * @return {@code true} if this sequence contains no elements
+	 */
+	public default boolean isEmpty() {
+<span class="pc bpc" id="L88" title="1 of 2 branches missed.">		return length() == 0;</span>
+	}
+
+	/**
+	 * Tests whether a predicate holds for all elements of this sequence.
+	 *
+	 * @param predicate the predicate to use to test the elements.
+	 * @return {@code true} if the given predicate p holds for all elements of
+	 *         this sequence, {@code false} otherwise.
+	 * @throws NullPointerException if the given {@code predicate} is
+	 *         {@code null}.
+	 */
+	public default boolean forAll(final Predicate&lt;? super T&gt; predicate) {
+<span class="nc" id="L101">		boolean valid = true;</span>
+
+<span class="nc bnc" id="L103" title="All 2 branches missed.">		if (this instanceof RandomAccess) {</span>
+<span class="nc bnc" id="L104" title="All 4 branches missed.">			for (int i = 0, n = length(); i &lt; n &amp;&amp; valid; ++i) {</span>
+<span class="nc" id="L105">				valid = predicate.test(get(i));</span>
+			}
+		} else {
+<span class="nc" id="L108">			final Iterator&lt;T&gt; it = iterator();</span>
+<span class="nc bnc" id="L109" title="All 4 branches missed.">			while (it.hasNext() &amp;&amp; valid) {</span>
+<span class="nc" id="L110">				valid = predicate.test(it.next());</span>
+			}
+		}
+
+<span class="nc" id="L114">		return valid;</span>
+	}
+
+	/**
+	 * Returns a sequential Stream with this sequence as its source.
+	 *
+	 * @since 3.0
+	 *
+	 * @return a sequential Stream over the elements in this sequence
+	 */
+	public default Stream&lt;T&gt; stream() {
+<span class="nc" id="L125">		return StreamSupport.stream(new SeqSpliterator&lt;&gt;(this), false);</span>
+	}
+
+	/**
+	 * Returns a possibly parallel {@code Stream} with this sequence as its
+	 * source.  It is allowable for this method to return a sequential stream.
+	 *
+	 * @since 3.0
+	 *
+	 * @return a possibly parallel {@code Stream} over the elements in this
+	 * collection
+	 */
+	public default Stream&lt;T&gt; parallelStream() {
+<span class="nc" id="L138">		return StreamSupport.stream(new SeqSpliterator&lt;&gt;(this), true);</span>
+	}
+
+	@Override
+	public default Spliterator&lt;T&gt; spliterator() {
+<span class="nc" id="L143">		return new SeqSpliterator&lt;T&gt;(this);</span>
+	}
+
+	/**
+	 * Returns {@code true} if this sequence contains the specified element.
+	 *
+	 * @param element element whose presence in this sequence is to be tested.
+	 *        The tested element can be {@code null}.
+	 * @return {@code true} if this sequence contains the specified element
+	 */
+	public default boolean contains(final Object element) {
+<span class="fc bfc" id="L154" title="All 2 branches covered.">		return indexOf(element) != -1;</span>
+	}
+
+	/**
+	 * Returns the index of the first occurrence of the specified element
+	 * in this sequence, or -1 if this sequence does not contain the element.
+	 *
+	 * @param element element to search for, can be {@code null}
+	 * @return the index of the first occurrence of the specified element in
+	 *          this sequence, or -1 if this sequence does not contain the element
+	 */
+	public default int indexOf(final Object element) {
+<span class="fc" id="L166">		return indexOf(element, 0, length());</span>
+	}
+
+	/**
+	 * Returns the index of the first occurrence of the specified element
+	 * in this sequence, or -1 if this sequence does not contain the element.
+	 *
+	 * @param element element to search for, can be {@code null}
+	 * @param start the start index (inclusively) for the element search.
+	 * @return the index of the first occurrence of the specified element in
+	 *          this sequence, or -1 if this sequence does not contain the element
+	 * @throws IndexOutOfBoundsException for an illegal end point index value
+	 *          ({@code start &lt; 0 || start &gt; length()}).
+	 */
+	public default int indexOf(final Object element, final int start) {
+<span class="fc" id="L181">		return indexOf(element, start, length());</span>
+	}
+
+	/**
+	 * Returns the index of the first occurrence of the specified element
+	 * in this sequence, or -1 if this sequence does not contain the element.
+	 *
+	 * @param element element to search for, can be {@code null}
+	 * @param start the start index (inclusively) for the element search.
+	 * @param end the end index (exclusively) for the element search.
+	 * @return the index of the first occurrence of the specified element in
+	 *          this sequence, or -1 if this sequence does not contain the element
+	 * @throws IndexOutOfBoundsException for an illegal end point index value
+	 *          ({@code start &lt; 0 || end &gt; length() || start &gt; end}).
+	 */
+	public default int indexOf(final Object element, final int start, final int end) {
+<span class="pc bpc" id="L197" title="1 of 2 branches missed.">		return element != null</span>
+<span class="pc" id="L198">			? indexWhere(element::equals, start, end)</span>
+<span class="pc" id="L199">			: indexWhere(Objects::isNull, start, end);</span>
+	}
+
+	/**
+	 * &lt;p&gt;
+	 * Returns the index of the first element on which the given predicate
+	 * returns {@code true}, or -1 if the predicate returns false for every
+	 * sequence element.
+	 * &lt;/p&gt;
+	 * &lt;pre&gt;{@code
+	 * // Finding index of first null value.
+	 * final int index = seq.indexOf(o -&gt; o == null);
+	 *
+	 * // Assert of no null values.
+	 * assert (sequence.indexOf(o -&gt; o == null) == -1);
+	 * }&lt;/pre&gt;
+	 *
+	 * @param predicate the search predicate.
+	 * @return the index of the first element on which the given predicate
+	 *          returns {@code true}, or -1 if the predicate returns {@code false}
+	 *          for every sequence element.
+	 * @throws NullPointerException if the given {@code predicate} is {@code null}.
+	 */
+	public default int indexWhere(final Predicate&lt;? super T&gt; predicate) {
+<span class="fc" id="L223">		return indexWhere(predicate, 0, length());</span>
+	}
+
+	/**
+	 * &lt;p&gt;
+	 * Returns the index of the first element on which the given predicate
+	 * returns {@code true}, or -1 if the predicate returns false for every
+	 * sequence element.
+	 * &lt;/p&gt;
+	 * &lt;pre&gt;{@code
+	 * // Finding index of first null value.
+	 * final int index = seq.indexOf(o -&gt; o == null);
+	 *
+	 * // Assert of no null values.
+	 * assert (sequence.indexOf(o -&gt; o == null) == -1);
+	 * }&lt;/pre&gt;
+	 *
+	 * @param predicate the search predicate.
+	 * @param start the search start index
+	 * @return the index of the first element on which the given predicate
+	 *          returns {@code true}, or -1 if the predicate returns {@code false}
+	 *          for every sequence element.
+	 * @throws NullPointerException if the given {@code predicate} is {@code null}.
+	 * @throws IndexOutOfBoundsException for an illegal end point index value
+	 *          ({@code start &lt; 0 || start &gt; length()}).
+	 */
+	public default int indexWhere(
+		final Predicate&lt;? super T&gt; predicate,
+		final int start
+	) {
+<span class="fc" id="L253">		return indexWhere(predicate, start, length());</span>
+	}
+
+	/**
+	 * &lt;p&gt;
+	 * Returns the index of the first element on which the given predicate
+	 * returns {@code true}, or -1 if the predicate returns false for every
+	 * sequence element.
+	 * &lt;/p&gt;
+	 * &lt;pre&gt;{@code
+	 * // Finding index of first null value.
+	 * final int index = seq.indexOf(o -&gt; o == null);
+	 *
+	 * // Assert of no null values.
+	 * assert (sequence.indexOf(o -&gt; o == null) == -1);
+	 * }&lt;/pre&gt;
+	 *
+	 * @param predicate the search predicate.
+	 * @param start the search start index
+	 * @param end the search end index
+	 * @return the index of the first element on which the given predicate
+	 *          returns {@code true}, or -1 if the predicate returns {@code false}
+	 *          for every sequence element.
+	 * @throws NullPointerException if the given {@code predicate} is {@code null}.
+	 * @throws IndexOutOfBoundsException for an illegal end point index value
+	 *          ({@code start &lt; 0 || end &gt; length() || start &gt; end}).
+	 */
+	public default int indexWhere(
+		final Predicate&lt;? super T&gt; predicate,
+		final int start,
+		final int end
+	) {
+<span class="nc" id="L285">		requireNonNull(predicate, &quot;Predicate&quot;);</span>
+
+<span class="nc" id="L287">		int index = -1;</span>
+<span class="nc bnc" id="L288" title="All 4 branches missed.">		for (int i = 0, n = length(); i &lt; n &amp;&amp; index == -1; ++i) {</span>
+<span class="nc bnc" id="L289" title="All 2 branches missed.">			if (predicate.test(get(i))) {</span>
+<span class="nc" id="L290">				index = i;</span>
+			}
+		}
+<span class="nc" id="L293">		return index;</span>
+	}
+
+	/**
+	 * Returns the index of the last occurrence of the specified element
+	 * in this sequence, or -1 if this sequence does not contain the element.
+	 *
+	 * @param element element to search for, can be {@code null}
+	 * @return the index of the last occurrence of the specified element in
+	 *         this sequence, or -1 if this sequence does not contain the element
+	 */
+	public default int lastIndexOf(final Object element) {
+<span class="fc" id="L305">		return lastIndexOf(element, 0, length());</span>
+	}
+
+	/**
+	 * Returns the index of the last occurrence of the specified element
+	 * in this sequence, or -1 if this sequence does not contain the element.
+	 *
+	 * @param element element to search for, can be {@code null}
+	 * @param end the search end index
+	 * @return the index of the last occurrence of the specified element in
+	 *         this sequence, or -1 if this sequence does not contain the element
+	 * @throws IndexOutOfBoundsException for an illegal end point index value
+	 *          ({@code end &lt; 0 || end &gt; length()}).
+	 */
+	public default int lastIndexOf(final Object element, final int end) {
+<span class="nc" id="L320">		return lastIndexOf(element, 0, end);</span>
+	}
+
+	/**
+	 * Returns the index of the last occurrence of the specified element
+	 * in this sequence, or -1 if this sequence does not contain the element.
+	 *
+	 * @param element element to search for, can be {@code null}
+	 * @param start the search start index
+	 * @param end the search end index
+	 * @return the index of the last occurrence of the specified element in
+	 *         this sequence, or -1 if this sequence does not contain the element
+	 * @throws IndexOutOfBoundsException for an illegal end point index value
+	 *          ({@code start &lt; 0 || end &gt; length() || start &gt; end}).
+	 */
+	public default int lastIndexOf(
+		final Object element,
+		final int start,
+		final int end
+	) {
+<span class="pc bpc" id="L340" title="1 of 2 branches missed.">		return element != null ?</span>
+<span class="pc" id="L341">			lastIndexWhere(element::equals, start, end) :</span>
+<span class="pc" id="L342">			lastIndexWhere(Objects::isNull, start, end);</span>
+	}
+
+	/**
+	 * Returns the index of the last element on which the given predicate
+	 * returns {@code true}, or -1 if the predicate returns false for every
+	 * sequence element.
+	 *
+	 * @param predicate the search predicate.
+	 * @return the index of the last element on which the given predicate
+	 *          returns {@code true}, or -1 if the predicate returns false for
+	 *          every sequence element.
+	 * @throws NullPointerException if the given {@code predicate} is {@code null}.
+	 */
+	public default int lastIndexWhere(final Predicate&lt;? super T&gt; predicate) {
+<span class="fc" id="L357">		return lastIndexWhere(predicate, 0, length());</span>
+	}
+
+	/**
+	 * Returns the index of the last element on which the given predicate
+	 * returns {@code true}, or -1 if the predicate returns false for every
+	 * sequence element.
+	 *
+	 * @param predicate the search predicate.
+	 * @param end the search end index
+	 * @return the index of the last element on which the given predicate
+	 *          returns {@code true}, or -1 if the predicate returns false for
+	 *          every sequence element.
+	 * @throws NullPointerException if the given {@code predicate} is {@code null}.
+	 * @throws IndexOutOfBoundsException for an illegal end point index value
+	 *          ({@code end &lt; 0 || end &gt; length()}).
+	 */
+	public default int lastIndexWhere(
+		final Predicate&lt;? super T&gt; predicate,
+		final int end
+	) {
+<span class="nc" id="L378">		return lastIndexWhere(predicate, 0, end);</span>
+	}
+
+	/**
+	 * Returns the index of the last element on which the given predicate
+	 * returns {@code true}, or -1 if the predicate returns false for every
+	 * sequence element.
+	 *
+	 * @param predicate the search predicate.
+	 * @param start the search start index
+	 * @param end the search end index
+	 * @return the index of the last element on which the given predicate
+	 *          returns {@code true}, or -1 if the predicate returns false for
+	 *          every sequence element.
+	 * @throws NullPointerException if the given {@code predicate} is {@code null}.
+	 * @throws IndexOutOfBoundsException for an illegal end point index value
+	 *          ({@code start &lt; 0 || end &gt; length() || start &gt; end}).
+	 */
+	public default int lastIndexWhere(
+		final Predicate&lt;? super T&gt; predicate,
+		final int start,
+		final int end
+	) {
+<span class="nc" id="L401">		requireNonNull(predicate, &quot;Predicate&quot;);</span>
+
+<span class="nc" id="L403">		int index = -1;</span>
+<span class="nc bnc" id="L404" title="All 4 branches missed.">		for (int i = length(); --i &gt;= 0 &amp;&amp; index == -1;) {</span>
+<span class="nc bnc" id="L405" title="All 2 branches missed.">			if (predicate.test(get(i))) {</span>
+<span class="nc" id="L406">				index = i;</span>
+			}
+		}
+<span class="nc" id="L409">		return index;</span>
+	}
+
+	/**
+	 * Returns a fixed-size list backed by the specified sequence. (Changes to
+	 * the returned list &quot;write through&quot; to the array.) The returned list is
+	 * fixed size, serializable and implements {@link RandomAccess}.
+	 *
+	 * @return a list view of this sequence
+	 */
+	public List&lt;T&gt; asList();
+
+	/**
+	 * Builds a new sequence by applying a function to all elements of this
+	 * sequence.
+	 *
+	 * @param &lt;B&gt; the element type of the returned collection.
+	 * @param mapper the function to apply to each element.
+	 * @return a new sequence of type That resulting from applying the given
+	 *         function f to each element of this sequence and collecting the
+	 *         results.
+	 * @throws NullPointerException if the element {@code mapper} is
+	 *         {@code null}.
+	 */
+	public &lt;B&gt; Seq&lt;B&gt; map(final Function&lt;? super T, ? extends B&gt; mapper);
+
+	/**
+	 * Return an array containing all of the elements in this sequence in right
+	 * order. The returned array will be &quot;safe&quot; in that no references to it
+	 * are maintained by this sequence. (In other words, this method must allocate
+	 * a new array.) The caller is thus free to modify the returned array.
+	 *
+	 * @see java.util.Collection#toArray()
+	 *
+	 * @return an array containing all of the elements in this list in right
+	 *          order
+	 */
+	public default Object[] toArray() {
+<span class="nc" id="L447">		final Object[] array = new Object[size()];</span>
+<span class="nc bnc" id="L448" title="All 2 branches missed.">		for (int i = size(); --i &gt;= 0;) {</span>
+<span class="nc" id="L449">			array[i] = get(i);</span>
+		}
+<span class="nc" id="L451">		return array;</span>
+	}
+
+	/**
+	 * Return an array containing all of the elements in this sequence in right
+	 * order; the runtime type of the returned array is that of the specified
+	 * array. If this sequence fits in the specified array, it is returned
+	 * therein. Otherwise, a new array is allocated with the runtime type of the
+	 * specified array and the length of this array.
+	 * &lt;p&gt;
+	 * If this sequence fits in the specified array with room to spare (i.e.,
+	 * the array has more elements than this array), the element in the array
+	 * immediately following the end of this array is set to null. (This is
+	 * useful in determining the length of the array only if the caller knows
+	 * that the list does not contain any null elements.)
+	 *
+	 * @see java.util.Collection#toArray(Object[])
+	 *
+	 * @param array the array into which the elements of this array are to be
+	 *         stored, if it is big enough; otherwise, a new array of the same
+	 *         runtime type is allocated for this purpose.
+	 * @return an array containing the elements of this array
+	 * @throws ArrayStoreException if the runtime type of the specified array is
+	 *         not a super type of the runtime type of every element in this
+	 *         array
+	 * @throws NullPointerException if the given array is {@code null}.
+	 */
+	@SuppressWarnings(&quot;unchecked&quot;)
+	public default T[] toArray(final T[] array) {
+<span class="nc bnc" id="L480" title="All 2 branches missed.">		if (array.length &lt; length()) {</span>
+<span class="nc" id="L481">			final T[] copy = (T[])java.lang.reflect.Array.newInstance(</span>
+<span class="nc" id="L482">				array.getClass().getComponentType(), length()</span>
+			);
+<span class="nc bnc" id="L484" title="All 2 branches missed.">			for (int i = length(); --i &gt;= 0;) {</span>
+<span class="nc" id="L485">				copy[i] = get(i);</span>
+			}
+
+<span class="nc" id="L488">			return copy;</span>
+		}
+
+<span class="nc bnc" id="L491" title="All 2 branches missed.">		for (int i = 0, n = length(); i &lt; n; ++i) {</span>
+<span class="nc" id="L492">			array[i] = get(i);</span>
+		}
+<span class="nc" id="L494">		return array;</span>
+	}
+
+	/**
+	 * Returns a view of the portion of this sequence between the specified
+	 * {@code start}, inclusive, and {@code end}, exclusive. (If {@code start}
+	 * and {@code end} are equal, the returned sequence has the length zero.)
+	 * The returned sequence is backed by this sequence, so non-structural
+	 * changes in the returned sequence are reflected in this sequence, and
+	 * vice-versa.
+	 * &lt;p&gt;
+	 * This method eliminates the need for explicit range operations (of the
+	 * populationSort that commonly exist for arrays). Any operation that
+	 * expects an sequence can be used as a range operation by passing an sub
+	 * sequence view instead of an whole sequence.
+	 *
+	 * @param start low end point (inclusive) of the sub array.
+	 * @return a view of the specified range within this array.
+	 * @throws IndexOutOfBoundsException for an illegal end point index value
+	 *          ({@code start &lt; 0 || start &gt; length()}).
+	 */
+	public Seq&lt;T&gt; subSeq(final int start);
+
+	/**
+	 * Returns a view of the portion of this sequence between the specified
+	 * {@code start}, inclusive, and {@code end}, exclusive. (If {@code start}
+	 * and {@code end} are equal, the returned sequence has the length zero.)
+	 * The returned sequence is backed by this sequence, so non-structural
+	 * changes in the returned sequence are reflected in this array, and
+	 * vice-versa.
+	 * &lt;p&gt;
+	 * This method eliminates the need for explicit range operations (of the
+	 * populationSort that commonly exist for arrays). Any operation that
+	 * expects an array can be used as a range operation by passing an sub
+	 * sequence view instead of an whole sequence.
+	 *
+	 * @param start low end point (inclusive) of the sub sequence.
+	 * @param end high end point (exclusive) of the sub sequence.
+	 * @return a view of the specified range within this sequence.
+	 * @throws IndexOutOfBoundsException for an illegal end point index value
+	 *          ({@code start &lt; 0 || end &gt; length() || start &gt; end}).
+	 */
+	public Seq&lt;T&gt; subSeq(final int start, final int end);
+
+	/**
+	 * Test whether the given array is sorted in ascending order.
+	 *
+	 * @return {@code true} if the given {@code array} is sorted in ascending
+	 *         order, {@code false} otherwise.
+	 * @throws NullPointerException if the given array or one of it's element is
+	 *         {@code null}.
+	 */
+	@SuppressWarnings(&quot;unchecked&quot;)
+	public default boolean isSorted() {
+<span class="nc" id="L548">		boolean sorted = true;</span>
+<span class="nc bnc" id="L549" title="All 4 branches missed.">		for (int i = 0, n = length() - 1; i &lt; n &amp;&amp; sorted; ++i) {</span>
+<span class="nc bnc" id="L550" title="All 2 branches missed.">			sorted = ((Comparable&lt;T&gt;)get(i)).compareTo(get(i + 1)) &lt;= 0;</span>
+		}
+
+<span class="nc" id="L553">		return sorted;</span>
+	}
+
+	/**
+	 * Test whether the given array is sorted in ascending order. The order of
+	 * the array elements is defined by the given comparator.
+	 *
+	 * @param comparator the comparator which defines the order.
+	 * @return {@code true} if the given {@code array} is sorted in ascending
+	 *         order, {@code false} otherwise.
+	 * @throws NullPointerException if the given array or one of it's element or
+	 *         the comparator is {@code null}.
+	 */
+	public default boolean isSorted(final Comparator&lt;? super T&gt; comparator) {
+<span class="nc" id="L567">		boolean sorted = true;</span>
+<span class="nc bnc" id="L568" title="All 4 branches missed.">		for (int i = 0, n = length() - 1; i &lt; n &amp;&amp; sorted; ++i) {</span>
+<span class="nc bnc" id="L569" title="All 2 branches missed.">			sorted = comparator.compare(get(i), get(i + 1)) &lt;= 0;</span>
+		}
+
+<span class="nc" id="L572">		return sorted;</span>
+	}
+
+	/**
+	 * Returns the hash code value for this sequence. The hash code is defined
+	 * as followed:
+	 *
+	 * &lt;pre&gt;{@code
+	 * int hashCode = 1;
+	 * final Iterator&lt;E&gt; it = seq.iterator();
+	 * while (it.hasNext()) {
+	 *     final E obj = it.next();
+	 *     hashCode = 31*hashCode + (obj == null ? 0 : obj.hashCode());
+	 * }
+	 * }&lt;/pre&gt;
+	 *
+	 * @see List#hashCode()
+	 * @see Seq#hashCode(Seq)
+	 *
+	 * @return the hash code value for this list
+	 */
+	@Override
+	public int hashCode();
+
+	/**
+	 * Compares the specified object with this sequence for equality. Returns
+	 * true if and only if the specified object is also a sequence, both
+	 * sequence have the same size, and all corresponding pairs of elements in
+	 * the two sequences are equal. (Two elements e1 and e2 are equal if
+	 * (e1==null ? e2==null : e1.equals(e2)).) This definition ensures that the
+	 * equals method works properly across different implementations of the Seq
+	 * interface.
+	 *
+	 * @see List#equals(Object)
+	 * @see Seq#equals(Seq, Object)
+	 *
+	 * @param object the object to be compared for equality with this sequence.
+	 * @return {@code true} if the specified object is equal to this sequence,
+	 *          {@code false} otherwise.
+	 */
+	@Override
+	public boolean equals(final Object object);
+
+	/**
+	 * Create a string representation of the given sequence.
+	 *
+	 * @param prefix the prefix of the string representation; e.g {@code '['}.
+	 * @param separator the separator of the array elements; e.g. {@code ','}.
+	 * @param suffix the suffix of the string representation; e.g. {@code ']'}.
+	 * @return the string representation of this sequence.
+	 */
+	public default String toString(
+		final String prefix,
+		final String separator,
+		final String suffix
+	) {
+<span class="fc" id="L628">		return stream()</span>
+<span class="fc" id="L629">			.map(Object::toString)</span>
+<span class="fc" id="L630">			.collect(joining(separator, prefix, suffix));</span>
+	}
+
+	/**
+	 * Create a string representation of the given sequence.
+	 *
+	 * @param separator the separator of the array elements; e.g. {@code ','}.
+	 * @return the string representation of this sequence.
+	 */
+	public default String toString(final String separator) {
+<span class="fc" id="L640">		return toString(&quot;&quot;, separator, &quot;&quot;);</span>
+	}
+
+	/**
+	 * Unified method for calculating the hash code of every {@link Seq}
+	 * implementation. The hash code is defined as followed:
+	 *
+	 * &lt;pre&gt;{@code
+	 * int hashCode = 1;
+	 * final Iterator&lt;E&gt; it = seq.iterator();
+	 * while (it.hasNext()) {
+	 *     final E obj = it.next();
+	 *     hashCode = 31*hashCode + (obj == null ? 0 : obj.hashCode());
+	 * }
+	 * }&lt;/pre&gt;
+	 *
+	 * @see Seq#hashCode()
+	 * @see List#hashCode()
+	 *
+	 * @param seq the sequence to calculate the hash code for.
+	 * @return the hash code of the given sequence.
+	 */
+	public static int hashCode(final Seq&lt;?&gt; seq) {
+<span class="fc" id="L663">		int hash = 1;</span>
+<span class="fc bfc" id="L664" title="All 2 branches covered.">		for (Object element : seq) {</span>
+<span class="pc bpc" id="L665" title="1 of 2 branches missed.">			hash = 31*hash + (element == null ? 0: element.hashCode());</span>
+<span class="fc" id="L666">		}</span>
+<span class="fc" id="L667">		return hash;</span>
+	}
+
+	/**
+	 * Unified method for compare to sequences for equality.
+	 *
+	 * @see Seq#equals(Object)
+	 *
+	 * @param seq the sequence to test for equality.
+	 * @param obj the object to test for equality with the sequence.
+	 * @return {@code true} if the given objects are sequences and contain the
+	 *          same objects in the same order, {@code false} otherwise.
+	 */
+	public static boolean equals(final Seq&lt;?&gt; seq, final Object obj) {
+<span class="fc bfc" id="L681" title="All 2 branches covered.">		if (obj == seq) {</span>
+<span class="fc" id="L682">			return true;</span>
+		}
+<span class="pc bpc" id="L684" title="1 of 2 branches missed.">		if (!(obj instanceof Seq&lt;?&gt;)) {</span>
+<span class="nc" id="L685">			return false;</span>
+		}
+
+<span class="fc" id="L688">		final Seq&lt;?&gt; other = (Seq&lt;?&gt;)obj;</span>
+<span class="pc bpc" id="L689" title="1 of 2 branches missed.">		boolean equals = seq.length() == other.length();</span>
+<span class="fc bfc" id="L690" title="All 4 branches covered.">		for (int i = seq.length(); equals &amp;&amp; --i &gt;= 0;) {</span>
+<span class="fc" id="L691">			final Object element = seq.get(i);</span>
+<span class="pc bpc" id="L692" title="1 of 2 branches missed.">			if (element != null) {</span>
+<span class="fc" id="L693">				equals = element.equals(other.get(i));</span>
+			} else {
+<span class="nc bnc" id="L695" title="All 2 branches missed.">				equals = other.get(i) == null;</span>
+			}
+<span class="fc" id="L697">		}</span>
+<span class="fc" id="L698">		return equals;</span>
+	}
+
+	/* *************************************************************************
+	 *  Some static factory methods.
+	 * ************************************************************************/
+
+	/**
+	 * Single instance of an empty {@code Seq}.
+	 *
+	 * @since 3.3
+	 */
+<span class="fc" id="L710">	public static final Seq&lt;?&gt; EMPTY = ISeq.EMPTY;</span>
+
+	/**
+	 * Return an empty {@code Seq}.
+	 *
+	 * @since 3.3
+	 *
+	 * @param &lt;T&gt; the element type of the returned {@code Seq}.
+	 * @return an empty {@code Seq}.
+	 */
+	public static &lt;T&gt; Seq&lt;T&gt; empty() {
+<span class="fc" id="L721">		return ISeq.empty();</span>
+	}
+
+	/**
+	 * Returns a {@code Collector} that accumulates the input elements into a
+	 * new {@code Seq}.
+	 *
+	 * @param &lt;T&gt; the type of the input elements
+	 * @return a {@code Collector} which collects all the input elements into a
+	 *         {@code Seq}, in encounter order
+	 */
+	public static &lt;T&gt; Collector&lt;T, ?, Seq&lt;T&gt;&gt; toSeq() {
+<span class="fc" id="L733">		return Collector.of(</span>
+			(Supplier&lt;List&lt;T&gt;&gt;)ArrayList::new,
+			List::add,
+			(left, right) -&gt; { left.addAll(right); return left; },
+			Seq::of
+		);
+	}
+
+	/**
+	 * Create a new {@code Seq} from the given values.
+	 *
+	 * @param &lt;T&gt; the element type
+	 * @param values the array values.
+	 * @return a new {@code Seq} with the given values.
+	 * @throws NullPointerException if the {@code values} array is {@code null}.
+	 */
+	@SafeVarargs
+	public static &lt;T&gt; Seq&lt;T&gt; of(final T... values) {
+<span class="fc" id="L751">		return ISeq.of(values);</span>
+	}
+
+	/**
+	 * Create a new {@code Seq} from the given values.
+	 *
+	 * @param &lt;T&gt; the element type
+	 * @param values the array values.
+	 * @return a new {@code Seq} with the given values.
+	 * @throws NullPointerException if the {@code values} array is {@code null}.
+	 */
+	public static &lt;T&gt; Seq&lt;T&gt; of(final Iterable&lt;? extends T&gt; values) {
+<span class="fc" id="L763">		return ISeq.of(values);</span>
+	}
+
+//	/**
+//	 * Create a new {@code Seq} instance from the remaining elements of the
+//	 * given iterator.
+//	 *
+//	 * @since 3.3
+//	 *
+//	 * @param &lt;T&gt; the element type.
+//	 * @return a new {@code Seq} with the given remaining values.
+//	 * @throws NullPointerException if the {@code values} object is
+//	 *        {@code null}.
+//	 */
+//	public static &lt;T&gt; Seq&lt;T&gt; of(final Iterator&lt;? extends T&gt; values) {
+//		final MSeq&lt;T&gt; seq = MSeq.of(values);
+//		return seq.isEmpty() ? empty() : seq.toISeq();
+//	}
+
+	/**
+	 * Creates a new sequence, which is filled with objects created be the given
+	 * {@code supplier}.
+	 *
+	 * @since 3.3
+	 *
+	 * @param &lt;T&gt; the element type of the sequence
+	 * @param supplier the {@code Supplier} which creates the elements, the
+	 *        returned sequence is filled with
+	 * @param length the length of the returned sequence
+	 * @return a new sequence filled with elements given by the {@code supplier}
+	 * @throws NegativeArraySizeException if the given {@code length} is
+	 *         negative
+	 * @throws NullPointerException if the given {@code supplier} is
+	 *         {@code null}
+	 */
+	static &lt;T&gt; Seq&lt;T&gt; of(Supplier&lt;? extends T&gt; supplier, final int length) {
+<span class="nc" id="L799">		return ISeq.of(supplier, length);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

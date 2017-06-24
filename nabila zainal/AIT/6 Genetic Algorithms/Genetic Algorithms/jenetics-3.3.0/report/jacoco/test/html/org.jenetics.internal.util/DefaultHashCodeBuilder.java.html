@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>DefaultHashCodeBuilder.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.util</a> &gt; <span class="el_source">DefaultHashCodeBuilder.java</span></div><h1>DefaultHashCodeBuilder.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.util;
+
+import java.util.Arrays;
+
+import org.jenetics.util.Seq;
+
+/**
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.0
+ */
+final class DefaultHashCodeBuilder implements Hash {
+	private static final int P1 = 47;
+	private static final int P2 = 103;
+	private static final int P3 = 1231;
+	private static final int P4 = 1237;
+
+
+<span class="fc" id="L38">	protected int _hash = 0;</span>
+
+<span class="fc" id="L40">	DefaultHashCodeBuilder(final Class&lt;?&gt; type) {</span>
+<span class="fc" id="L41">		_hash = type.hashCode();</span>
+<span class="fc" id="L42">	}</span>
+
+	@Override
+	public DefaultHashCodeBuilder and(final boolean value) {
+<span class="nc bnc" id="L46" title="All 2 branches missed.">		_hash += value ? P3 : P4; return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final boolean[] values) {
+<span class="nc" id="L51">		_hash += Arrays.hashCode(values); return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final byte value) {
+<span class="nc" id="L56">		_hash += P1*value + P2; return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final byte[] values) {
+<span class="fc" id="L61">		_hash += Arrays.hashCode(values); return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final char value) {
+<span class="nc" id="L66">		_hash += P1*value + P2; return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final char[] values) {
+<span class="fc" id="L71">		_hash += Arrays.hashCode(values); return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final short value) {
+<span class="nc" id="L76">		_hash += P1*value + P2; return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final short[] values) {
+<span class="nc" id="L81">		_hash += Arrays.hashCode(values); return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final int value) {
+<span class="fc" id="L86">		_hash += P1*value + P2; return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final int[] values) {
+<span class="nc" id="L91">		_hash += Arrays.hashCode(values); return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final long value) {
+<span class="fc" id="L96">		_hash += P1*Long.hashCode(value); return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final long[] values) {
+<span class="nc" id="L101">		_hash += Arrays.hashCode(values); return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final float value) {
+<span class="nc" id="L106">		_hash += P1*Float.hashCode(value); return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final float[] values) {
+<span class="nc" id="L111">		_hash += Arrays.hashCode(values); return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final double value) {
+<span class="fc" id="L116">		_hash += P1*Double.hashCode(value); return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final double[] values) {
+<span class="nc" id="L121">		_hash += Arrays.hashCode(values); return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final Object value) {
+<span class="pc bpc" id="L126" title="1 of 2 branches missed.">		_hash += P1*(value == null ? 0 : value.hashCode()) + P2; return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final Object[] values) {
+<span class="nc" id="L131">		_hash += Arrays.hashCode(values); return this;</span>
+	}
+
+	@Override
+	public DefaultHashCodeBuilder and(final Seq&lt;?&gt; values) {
+<span class="fc" id="L136">		_hash += Seq.hashCode(values); return this;</span>
+	}
+
+	@Override
+	public int value() {
+<span class="fc" id="L141">		return _hash;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>BoltzmannSelector.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">BoltzmannSelector.java</span></div><h1>BoltzmannSelector.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.lang.Math.exp;
+import static java.lang.String.format;
+import static org.jenetics.internal.math.arithmetic.normalize;
+
+import java.util.Arrays;
+
+import org.jenetics.internal.util.Hash;
+
+/**
+ * &lt;p&gt;
+ * In this {@code Selector}, the probability for selection is defined as.
+ * &lt;/p&gt;
+ * &lt;p&gt;&lt;img
+ *        src=&quot;doc-files/boltzmann-formula1.gif&quot;
+ *        alt=&quot;P(i)=\frac{\textup{e}^{b\cdot f_i}}{Z}&quot;
+ *     &gt;
+ * &lt;/p&gt;
+ * where &lt;i&gt;b&lt;/i&gt; controls the selection intensity, and
+ * &lt;p&gt;&lt;img
+ *        src=&quot;doc-files/boltzmann-formula2.gif&quot;
+ *        alt=&quot;Z=\sum_{j=1}^{n}\textrm{e}^{f_j}&quot;
+ *     &gt;.
+ * &lt;/p&gt;
+ *
+ * &lt;i&gt;f&lt;/i&gt;&lt;sub&gt;&lt;i&gt;j&lt;/i&gt;&lt;/sub&gt; denotes the fitness value of the
+ * &lt;i&gt;j&lt;sup&gt;th&lt;/sup&gt;&lt;/i&gt; individual.
+ * &lt;br&gt;
+ * Positive values of &lt;i&gt;b&lt;/i&gt; increases the selection probability of the phenotype
+ * with high fitness values. Negative values of &lt;i&gt;b&lt;/i&gt; increases the selection
+ * probability of phenotypes with low fitness values. If &lt;i&gt;b&lt;/i&gt; is zero the
+ * selection probability of all phenotypes is set to &lt;sup&gt;1&lt;/sup&gt;/&lt;sub&gt;N&lt;/sub&gt;.
+ *
+ * @param &lt;G&gt; the gene type.
+ * @param &lt;N&gt; the BoltzmannSelector requires a number type.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.2
+ */
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">public final class BoltzmannSelector&lt;</span>
+	G extends Gene&lt;?, G&gt;,
+	N extends Number &amp; Comparable&lt;? super N&gt;
+&gt;
+	extends ProbabilitySelector&lt;G, N&gt;
+{
+
+	private final double _b;
+
+	/**
+	 * Create a new BoltzmanSelector with the given &lt;i&gt;b&lt;/i&gt; value. &lt;b&gt;High
+	 * absolute values of &lt;i&gt;b&lt;/i&gt; can create numerical overflows while
+	 * calculating the selection probabilities.&lt;/b&gt;
+	 *
+	 * @param b the &lt;i&gt;b&lt;/i&gt; value of this BoltzmanSelector
+	 */
+<span class="fc" id="L77">	public BoltzmannSelector(final double b) {</span>
+<span class="fc" id="L78">		_b = b;</span>
+<span class="fc" id="L79">	}</span>
+
+	/**
+	 * Create a new BoltzmannSelector with a default beta of 4.0.
+	 */
+	public BoltzmannSelector() {
+<span class="fc" id="L85">		this(4.0);</span>
+<span class="fc" id="L86">	}</span>
+
+	@Override
+	protected double[] probabilities(
+		final Population&lt;G, N&gt; population,
+		final int count
+	) {
+<span class="pc bpc" id="L93" title="2 of 4 branches missed.">		assert population != null : &quot;Population must not be null. &quot;;</span>
+<span class="pc bpc" id="L94" title="2 of 4 branches missed.">		assert !population.isEmpty() : &quot;Population is empty.&quot;;</span>
+<span class="pc bpc" id="L95" title="2 of 4 branches missed.">		assert count &gt; 0 : &quot;Population to select must be greater than zero. &quot;;</span>
+
+		// Copy the fitness values to probabilities arrays.
+<span class="fc" id="L98">		final double[] fitness = new double[population.size()];</span>
+
+<span class="fc" id="L100">		fitness[0] = population.get(0).getFitness().doubleValue();</span>
+<span class="fc" id="L101">		double min = fitness[0];</span>
+<span class="fc" id="L102">		double max = fitness[0];</span>
+<span class="fc bfc" id="L103" title="All 2 branches covered.">		for (int i = 1; i &lt; fitness.length; ++i) {</span>
+<span class="fc" id="L104">			fitness[i] = population.get(i).getFitness().doubleValue();</span>
+<span class="fc bfc" id="L105" title="All 2 branches covered.">			if (fitness[i] &lt; min) min = fitness[i];</span>
+<span class="fc bfc" id="L106" title="All 2 branches covered.">			else if (fitness[i] &gt; max) max = fitness[i];</span>
+		}
+
+<span class="fc" id="L109">		final double diff = max - min;</span>
+<span class="fc bfc" id="L110" title="All 2 branches covered.">		if (eq(diff, 0.0)) {</span>
+			// Set equal probabilities if diff (almost) zero.
+<span class="fc" id="L112">			Arrays.fill(fitness, 1.0/fitness.length);</span>
+		} else {
+			// Scale fitness values to avoid overflow.
+<span class="fc bfc" id="L115" title="All 2 branches covered.">			for (int i = fitness.length; --i &gt;= 0;) {</span>
+<span class="fc" id="L116">				fitness[i] = (fitness[i] - min)/diff;</span>
+			}
+
+			// Apply the &quot;Boltzmann&quot; function.
+<span class="fc bfc" id="L120" title="All 2 branches covered.">			for (int i = fitness.length; --i &gt;= 0;) {</span>
+<span class="fc" id="L121">				fitness[i] = exp(_b*fitness[i]);</span>
+			}
+		}
+
+<span class="fc" id="L125">		return normalize(fitness);</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L130">		return Hash.of(getClass()).and(_b).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc bfc" id="L135" title="All 2 branches covered.">		return obj instanceof BoltzmannSelector &amp;&amp;</span>
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">			Double.compare(((BoltzmannSelector)obj)._b, _b) == 0;</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L141">		return format(&quot;BoltzmannSelector[b=%f]&quot;, _b);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

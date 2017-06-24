@@ -1,0 +1,400 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>EvolutionStatistics.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.engine</a> &gt; <span class="el_source">EvolutionStatistics.java</span></div><h1>EvolutionStatistics.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.engine;
+
+import static java.lang.Math.sqrt;
+import static java.lang.String.format;
+
+import java.text.NumberFormat;
+import java.time.Duration;
+import java.util.function.Consumer;
+
+import org.jenetics.Phenotype;
+import org.jenetics.stat.DoubleMomentStatistics;
+import org.jenetics.stat.IntMomentStatistics;
+import org.jenetics.stat.LongMomentStatistics;
+import org.jenetics.stat.MinMax;
+
+/**
+ * This class can be used to gather additional statistic information of an
+ * evolution process. The additional information can be useful during the
+ * development phase of the GA or while testing the GA's performance. The
+ * following example shows how to integrate the &lt;i&gt;statistics&lt;/i&gt; object into
+ * your evolution &lt;i&gt;stream&lt;/i&gt;.
+ *
+ * &lt;pre&gt;{@code
+ * final Engine&lt;DoubleGene, Double&gt; engine = ...
+ * final EvolutionStatistics&lt;Double, DoubleMomentStatistics&gt; statistics =
+ *     EvolutionStatistics.ofNumber();
+ *
+ * final Phenotype&lt;DoubleGene, Double&gt; result = engine.stream()
+ *     .limit(bySteadyFitness(7))
+ *     .limit(100)
+ *     .peek(statistics)
+ *     .collect(toBestPhenotype());
+ *
+ * System.println(statistics);
+ * }&lt;/pre&gt;
+ *
+ * &lt;b&gt;Example output&lt;/b&gt;
+ *
+ * &lt;pre&gt;{@code
+ * +---------------------------------------------------------------------------+
+ * |  Time statistics                                                          |
+ * +---------------------------------------------------------------------------+
+ * |             Selection: sum=0.046538278000 s; mean=0.003878189833 s        |
+ * |              Altering: sum=0.086155457000 s; mean=0.007179621417 s        |
+ * |   Fitness calculation: sum=0.022901606000 s; mean=0.001908467167 s        |
+ * |     Overall execution: sum=0.147298067000 s; mean=0.012274838917 s        |
+ * +---------------------------------------------------------------------------+
+ * |  Evolution statistics                                                     |
+ * +---------------------------------------------------------------------------+
+ * |           Generations: 12                                                 |
+ * |               Altered: sum=7,331; mean=610.916666667                      |
+ * |                Killed: sum=0; mean=0.000000000                            |
+ * |              Invalids: sum=0; mean=0.000000000                            |
+ * +---------------------------------------------------------------------------+
+ * |  Population statistics                                                    |
+ * +---------------------------------------------------------------------------+
+ * |                   Age: max=11; mean=1.951000; var=5.545190                |
+ * |               Fitness:                                                    |
+ * |                      min  = 0.000000000000                                |
+ * |                      max  = 481.748227114537                              |
+ * |                      mean = 384.430345078660                              |
+ * |                      var  = 13006.132537301528                            |
+ * |                      std  = 114.044432                                    |
+ * +---------------------------------------------------------------------------+
+ * }&lt;/pre&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.0
+ * @version 3.0
+ */
+public abstract class EvolutionStatistics&lt;
+	C extends Comparable&lt;? super C&gt;,
+	FitnessStatistics
+&gt;
+	implements Consumer&lt;EvolutionResult&lt;?, C&gt;&gt;
+{
+
+	// The duration statistics values.
+<span class="nc" id="L98">	private final DoubleMomentStatistics</span>
+		_selectionDuration = new DoubleMomentStatistics();
+<span class="nc" id="L100">	private final DoubleMomentStatistics</span>
+		_alterDuration = new DoubleMomentStatistics();
+<span class="nc" id="L102">	private final DoubleMomentStatistics</span>
+		_evaluationDuration = new DoubleMomentStatistics();
+<span class="nc" id="L104">	private final DoubleMomentStatistics</span>
+		_evolveDuration = new DoubleMomentStatistics();
+
+	// The evolution statistics values.
+<span class="nc" id="L108">	private final IntMomentStatistics _killed = new IntMomentStatistics();</span>
+<span class="nc" id="L109">	private final IntMomentStatistics _invalids = new IntMomentStatistics();</span>
+<span class="nc" id="L110">	private final IntMomentStatistics _altered = new IntMomentStatistics();</span>
+
+	// The population statistics values.
+<span class="nc" id="L113">	final LongMomentStatistics _age = new LongMomentStatistics();</span>
+<span class="nc" id="L114">	FitnessStatistics _fitness = null;</span>
+
+<span class="nc" id="L116">	EvolutionStatistics() {</span>
+<span class="nc" id="L117">	}</span>
+
+	@Override
+	public void accept(final EvolutionResult&lt;?, C&gt; result) {
+<span class="nc" id="L121">		accept(result.getDurations());</span>
+
+<span class="nc" id="L123">		_killed.accept(result.getKillCount());</span>
+<span class="nc" id="L124">		_invalids.accept(result.getInvalidCount());</span>
+<span class="nc" id="L125">		_altered.accept(result.getAlterCount());</span>
+
+<span class="nc" id="L127">		result.getPopulation()</span>
+<span class="nc" id="L128">			.forEach(pt -&gt; accept(pt, result.getGeneration()));</span>
+<span class="nc" id="L129">	}</span>
+
+	void accept(final Phenotype&lt;?, C&gt; pt, final long generation) {
+<span class="nc" id="L132">		_age.accept(pt.getAge(generation));</span>
+<span class="nc" id="L133">	}</span>
+
+	// Calculate duration statistics
+	private void accept(final EvolutionDurations durations) {
+<span class="nc" id="L137">		final double selection =</span>
+<span class="nc" id="L138">			toSeconds(durations.getOffspringSelectionDuration()) +</span>
+<span class="nc" id="L139">				toSeconds(durations.getSurvivorsSelectionDuration());</span>
+<span class="nc" id="L140">		final double alter =</span>
+<span class="nc" id="L141">			toSeconds(durations.getOffspringAlterDuration()) +</span>
+<span class="nc" id="L142">				toSeconds(durations.getOffspringFilterDuration());</span>
+
+<span class="nc" id="L144">		_selectionDuration.accept(selection);</span>
+<span class="nc" id="L145">		_alterDuration.accept(alter);</span>
+<span class="nc" id="L146">		_evaluationDuration</span>
+<span class="nc" id="L147">			.accept(toSeconds(durations.getEvaluationDuration()));</span>
+<span class="nc" id="L148">		_evolveDuration</span>
+<span class="nc" id="L149">			.accept(toSeconds(durations.getEvolveDuration()));</span>
+<span class="nc" id="L150">	}</span>
+
+	private static double toSeconds(final Duration duration) {
+<span class="nc" id="L153">		return duration.toNanos()/1_000_000_000.0;</span>
+	}
+
+	/* *************************************************************************
+	 * Evaluation timing statistics
+	 * ************************************************************************/
+
+	/**
+	 * Return the duration statistics needed for selecting the population, in
+	 * seconds.
+	 *
+	 * @return the duration statistics needed for selecting the population
+	 */
+	public DoubleMomentStatistics getSelectionDuration() {
+<span class="nc" id="L167">		return _selectionDuration;</span>
+	}
+
+	/**
+	 * Return the duration statistics needed for altering the population, in
+	 * seconds.
+	 *
+	 * @return the duration statistics needed for altering the population
+	 */
+	public DoubleMomentStatistics getAlterDuration() {
+<span class="nc" id="L177">		return _alterDuration;</span>
+	}
+
+	/**
+	 * Return the duration statistics needed for evaluating the fitness function
+	 * of the new individuals, in seconds.
+	 *
+	 * @return the duration statistics needed for evaluating the fitness
+	 *         function of the new individuals
+	 */
+	public DoubleMomentStatistics getEvaluationDuration() {
+<span class="nc" id="L188">		return _evaluationDuration;</span>
+	}
+
+	/**
+	 * Return the duration statistics needed for the whole evolve step, in
+	 * seconds.
+	 *
+	 * @return the duration statistics needed for the whole evolve step
+	 */
+	public DoubleMomentStatistics getEvolveDuration() {
+<span class="nc" id="L198">		return _evolveDuration;</span>
+	}
+
+
+
+	/* *************************************************************************
+	 * Evolution statistics
+	 * ************************************************************************/
+
+	/**
+	 * Return the statistics about the killed individuals during the evolution
+	 * process.
+	 *
+	 * @return killed individual statistics
+	 */
+	public IntMomentStatistics getKilled() {
+<span class="nc" id="L214">		return _killed;</span>
+	}
+
+	/**
+	 * Return the statistics about the invalid individuals during the evolution
+	 * process.
+	 *
+	 * @return invalid individual statistics
+	 */
+	public IntMomentStatistics getInvalids() {
+<span class="nc" id="L224">		return _invalids;</span>
+	}
+
+	/**
+	 * Return the statistics about the altered individuals during the evolution
+	 * process.
+	 *
+	 * @return altered individual statistics
+	 */
+	public IntMomentStatistics getAltered() {
+<span class="nc" id="L234">		return _altered;</span>
+	}
+
+	/**
+	 * Return the statistics about the individuals age.
+	 *
+	 * @return individual age statistics
+	 */
+	public LongMomentStatistics getPhenotypeAge() {
+<span class="nc" id="L243">		return _age;</span>
+	}
+
+	/**
+	 * Return the minimal and maximal fitness.
+	 *
+	 * @return minimal and maximal fitness
+	 */
+	public FitnessStatistics getFitness() {
+<span class="nc" id="L252">		return _fitness;</span>
+	}
+
+<span class="nc" id="L255">	final String cpattern = &quot;| %22s %-51s|\n&quot;;</span>
+<span class="nc" id="L256">	final String spattern = &quot;| %27s %-46s|\n&quot;;</span>
+
+	@Override
+	public String toString() {
+<span class="nc" id="L260">		return</span>
+			&quot;+---------------------------------------------------------------------------+\n&quot; +
+			&quot;|  Time statistics                                                          |\n&quot; +
+			&quot;+---------------------------------------------------------------------------+\n&quot; +
+<span class="nc" id="L264">			format(cpattern, &quot;Selection:&quot;, d(_selectionDuration)) +</span>
+<span class="nc" id="L265">			format(cpattern, &quot;Altering:&quot;, d(_alterDuration)) +</span>
+<span class="nc" id="L266">			format(cpattern, &quot;Fitness calculation:&quot;, d(_evaluationDuration)) +</span>
+<span class="nc" id="L267">			format(cpattern, &quot;Overall execution:&quot;, d(_evolveDuration)) +</span>
+			&quot;+---------------------------------------------------------------------------+\n&quot; +
+			&quot;|  Evolution statistics                                                     |\n&quot; +
+			&quot;+---------------------------------------------------------------------------+\n&quot; +
+<span class="nc" id="L271">			format(cpattern, &quot;Generations:&quot;, i(_altered.getCount())) +</span>
+<span class="nc" id="L272">			format(cpattern, &quot;Altered:&quot;, i(_altered)) +</span>
+<span class="nc" id="L273">			format(cpattern, &quot;Killed:&quot;, i(_killed)) +</span>
+<span class="nc" id="L274">			format(cpattern, &quot;Invalids:&quot;, i(_invalids));</span>
+	}
+
+	private static String d(final DoubleMomentStatistics statistics) {
+<span class="nc" id="L278">		return format(</span>
+			&quot;sum=%3.12f s; mean=%3.12f s&quot;,
+<span class="nc" id="L280">			statistics.getSum(), statistics.getMean()</span>
+		);
+	}
+
+	private static String i(final IntMomentStatistics statistics) {
+<span class="nc" id="L285">		final NumberFormat nf = NumberFormat.getIntegerInstance();</span>
+<span class="nc" id="L286">		return format(</span>
+			&quot;sum=%s; mean=%6.9f&quot;,
+<span class="nc" id="L288">			nf.format(statistics.getSum()), statistics.getMean()</span>
+		);
+	}
+
+	private static String i(final long value) {
+<span class="nc" id="L293">		final NumberFormat nf = NumberFormat.getIntegerInstance();</span>
+<span class="nc" id="L294">		return nf.format(value);</span>
+	}
+
+	private static String p(final IntMomentStatistics statistics) {
+<span class="nc" id="L298">		final NumberFormat nf = NumberFormat.getIntegerInstance();</span>
+<span class="nc" id="L299">		return format(</span>
+			&quot;max=%s; mean=%6.6f; var=%6.6f&quot;,
+<span class="nc" id="L301">			nf.format(statistics.getMax()),</span>
+<span class="nc" id="L302">			statistics.getMean(),</span>
+<span class="nc" id="L303">			statistics.getVariance()</span>
+		);
+	}
+
+	private static String p(final LongMomentStatistics statistics) {
+<span class="nc" id="L308">		final NumberFormat nf = NumberFormat.getIntegerInstance();</span>
+<span class="nc" id="L309">		return format(</span>
+			&quot;max=%s; mean=%6.6f; var=%6.6f&quot;,
+<span class="nc" id="L311">			nf.format(statistics.getMax()),</span>
+<span class="nc" id="L312">			statistics.getMean(),</span>
+<span class="nc" id="L313">			statistics.getVariance()</span>
+		);
+	}
+
+	private static final class Comp&lt;
+		C extends Comparable&lt;? super C&gt;
+		&gt;
+		extends EvolutionStatistics&lt;C, MinMax&lt;C&gt;&gt;
+	{
+<span class="nc" id="L322">		private Comp() {</span>
+<span class="nc" id="L323">			_fitness = MinMax.of();</span>
+<span class="nc" id="L324">		}</span>
+
+		@Override
+		public void accept(final EvolutionResult&lt;?, C&gt; result) {
+<span class="nc bnc" id="L328" title="All 2 branches missed.">			if (_fitness.getMax() == null) {</span>
+<span class="nc" id="L329">				_fitness = MinMax.of(result.getOptimize().ascending());</span>
+			}
+
+<span class="nc" id="L332">			super.accept(result);</span>
+<span class="nc" id="L333">		}</span>
+
+		@Override
+		void accept(final Phenotype&lt;?, C&gt; pt, final long generation) {
+<span class="nc" id="L337">			super.accept(pt, generation);</span>
+<span class="nc" id="L338">			_fitness.accept(pt.getFitness());</span>
+<span class="nc" id="L339">		}</span>
+
+		@Override
+		public String toString() {
+<span class="nc" id="L343">			return super.toString() +</span>
+				&quot;+---------------------------------------------------------------------------+\n&quot; +
+				&quot;|  Population statistics                                                    |\n&quot; +
+				&quot;+---------------------------------------------------------------------------+\n&quot; +
+<span class="nc" id="L347">				format(cpattern, &quot;Age:&quot;, p(_age)) +</span>
+<span class="nc" id="L348">				format(cpattern, &quot;Fitness&quot;, &quot;&quot;) +</span>
+<span class="nc" id="L349">				format(spattern, &quot;min =&quot;, _fitness.getMin()) +</span>
+<span class="nc" id="L350">				format(spattern, &quot;max =&quot;, _fitness.getMax()) +</span>
+				&quot;+---------------------------------------------------------------------------+&quot;;
+		}
+	}
+
+	private static final class Num&lt;N extends Number &amp; Comparable&lt;? super N&gt;&gt;
+		extends EvolutionStatistics&lt;N, DoubleMomentStatistics&gt;
+	{
+<span class="nc" id="L358">		private Num() {</span>
+<span class="nc" id="L359">			_fitness = new DoubleMomentStatistics();</span>
+<span class="nc" id="L360">		}</span>
+
+		@Override
+		void accept(final Phenotype&lt;?, N&gt; pt, final long generation) {
+<span class="nc" id="L364">			super.accept(pt, generation);</span>
+<span class="nc" id="L365">			_fitness.accept(pt.getFitness().doubleValue());</span>
+<span class="nc" id="L366">		}</span>
+
+		@Override
+		public String toString() {
+<span class="nc" id="L370">			return super.toString() +</span>
+				&quot;+---------------------------------------------------------------------------+\n&quot; +
+				&quot;|  Population statistics                                                    |\n&quot; +
+				&quot;+---------------------------------------------------------------------------+\n&quot; +
+<span class="nc" id="L374">				format(cpattern, &quot;Age:&quot;, p(_age)) +</span>
+<span class="nc" id="L375">				format(cpattern, &quot;Fitness:&quot;, &quot;&quot;) +</span>
+<span class="nc" id="L376">				format(spattern, &quot;min  =&quot;, d(_fitness.getMin())) +</span>
+<span class="nc" id="L377">				format(spattern, &quot;max  =&quot;, d(_fitness.getMax())) +</span>
+<span class="nc" id="L378">				format(spattern, &quot;mean =&quot;, d(_fitness.getMean())) +</span>
+<span class="nc" id="L379">				format(spattern, &quot;var  =&quot;, d(_fitness.getVariance())) +</span>
+<span class="nc" id="L380">				format(spattern, &quot;std  =&quot;, d(sqrt(_fitness.getVariance()))) +</span>
+				&quot;+---------------------------------------------------------------------------+&quot;;
+		}
+
+		private static String d(final double value) {
+<span class="nc" id="L385">			return format(&quot;%3.12f&quot;, value);</span>
+		}
+	}
+
+	public static &lt;C extends Comparable&lt;? super C&gt;&gt;
+	EvolutionStatistics&lt;C, MinMax&lt;C&gt;&gt; ofComparable() {
+<span class="nc" id="L391">		return new Comp&lt;&gt;();</span>
+	}
+
+	public static &lt;N extends Number &amp; Comparable&lt;? super N&gt;&gt;
+	EvolutionStatistics&lt;N, DoubleMomentStatistics&gt; ofNumber() {
+<span class="nc" id="L396">		return new Num&lt;&gt;();</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

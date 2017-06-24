@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Optimize.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">Optimize.java</span></div><h1>Optimize.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import java.util.Comparator;
+
+/**
+ * This {@code enum} determines whether the GA should maximize or minimize the
+ * fitness function.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.0
+ */
+<span class="pc" id="L32">public enum Optimize {</span>
+
+	/**
+	 * GA minimization
+	 */
+<span class="fc" id="L37">	MINIMUM {</span>
+		@Override
+		public &lt;T extends Comparable&lt;? super T&gt;&gt;
+		int compare(final T a, final T b)
+		{
+<span class="fc" id="L42">			return b.compareTo(a);</span>
+		}
+	},
+
+	/**
+	 * GA maximization
+	 */
+<span class="fc" id="L49">	MAXIMUM {</span>
+		@Override
+		public &lt;T extends Comparable&lt;? super T&gt;&gt;
+		int compare(final T a, final T b)
+		{
+<span class="fc" id="L54">			return a.compareTo(b);</span>
+		}
+	};
+
+	/**
+	 * Compares two comparable objects. Returns a negative integer, zero, or a
+	 * positive integer as the first argument is better than, equal to, or worse
+	 * than the second.
+	 *
+	 * @param &lt;T&gt; the comparable type
+	 * @param a the first object to be compared.
+	 * @param b the second object to be compared.
+	 * @return a negative integer, zero, or a positive integer as the first
+	 *          argument is better than, equal to, or worse than the second.
+	 * @throws NullPointerException if one of the arguments is {@code null}.
+	 */
+	public abstract &lt;T extends Comparable&lt;? super T&gt;&gt;
+	int compare(final T a, final T b);
+
+	/**
+	 * Create an appropriate comparator of the given optimization strategy. A
+	 * collection of comparable objects with the returned comparator will be
+	 * sorted in &lt;b&gt;descending&lt;/b&gt; order, according to the given definition
+	 * of &lt;i&gt;better&lt;/i&gt; and &lt;i&gt;worse&lt;/i&gt;.
+	 *
+	 * &lt;pre&gt;{@code
+	 * final Population&lt;DoubleGene, Double&gt; population = ...
+	 * population.sort(Optimize.MINIMUM.&lt;Double&gt;descending());
+	 * }&lt;/pre&gt;
+	 *
+	 * The code example above will populationSort the population according it's fitness
+	 * values in ascending order, since lower values are &lt;i&gt;better&lt;/i&gt; in this
+	 * case.
+	 *
+	 * @param &lt;T&gt; the type of the objects to compare.
+	 * @return a new {@link Comparator} for the type {@code T}.
+	 */
+	public &lt;T extends Comparable&lt;? super T&gt;&gt; Comparator&lt;T&gt; descending() {
+<span class="fc" id="L92">		return (a, b) -&gt; compare(b, a);</span>
+	}
+
+	/**
+	 * Create an appropriate comparator of the given optimization strategy. A
+	 * collection of comparable objects with the returned comparator will be
+	 * sorted in &lt;b&gt;ascending&lt;/b&gt; order, according to the given definition
+	 * of &lt;i&gt;better&lt;/i&gt; and &lt;i&gt;worse&lt;/i&gt;.
+	 *
+	 * &lt;pre&gt;{@code
+	 * final Population&lt;DoubleGene, Double&gt; population = ...
+	 * population.sort(Optimize.MINIMUM.&lt;Double&gt;ascending());
+	 * }&lt;/pre&gt;
+	 *
+	 * The code example above will populationSort the population according it's fitness
+	 * values in descending order, since lower values are &lt;i&gt;better&lt;/i&gt; in this
+	 * case.
+	 *
+	 * @param &lt;T&gt; the type of the objects to compare.
+	 * @return a new {@link Comparator} for the type {@code T}.
+	 */
+	public &lt;T extends Comparable&lt;? super T&gt;&gt; Comparator&lt;T&gt; ascending() {
+<span class="fc" id="L114">		return this::compare;</span>
+	}
+
+	/**
+	 * Return the best value, according to this optimization direction.
+	 *
+	 * @param &lt;C&gt; the fitness value type.
+	 * @param a the first value.
+	 * @param b the second value.
+	 * @return the best value. If both values are equal the first one is returned.
+	 */
+	public &lt;C extends Comparable&lt;? super C&gt;&gt; C best(final C a, final C b) {
+<span class="fc bfc" id="L126" title="All 2 branches covered.">		return compare(b, a) &gt; 0 ? b : a;</span>
+	}
+
+	/**
+	 * Return the worst value, according to this optimization direction.
+	 *
+	 * @param &lt;C&gt; the fitness value type.
+	 * @param a the first value.
+	 * @param b the second value.
+	 * @return the worst value. If both values are equal the first one is returned.
+	 */
+	public &lt;C extends Comparable&lt;? super C&gt;&gt; C worst(final C a, final C b) {
+<span class="fc bfc" id="L138" title="All 2 branches covered.">		return compare(b, a) &lt; 0 ? b : a;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

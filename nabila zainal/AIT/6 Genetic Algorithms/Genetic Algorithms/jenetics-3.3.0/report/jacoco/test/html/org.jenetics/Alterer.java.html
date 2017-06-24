@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Alterer.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">Alterer.java</span></div><h1>Alterer.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import org.jenetics.util.ISeq;
+
+/**
+ * The Alterer is responsible for the changing/recombining the Population.
+ * Alterers can be chained by appending a list of alterers with the
+ * {@link org.jenetics.engine.Engine.Builder#alterers(Alterer, Alterer[])} method.
+ *
+ * &lt;pre&gt;{@code
+ * final Engine&lt;DoubleGene, Double&gt; engine = Engine
+ *     .builder(gtf, ff)
+ *     .alterers(
+ *         new Crossover&lt;&gt;(0.1),
+ *         new Mutator&lt;&gt;(0.05),
+ *         new MeanAlterer&lt;&gt;(0.2))
+ *     .build();
+ * final EvolutionStream&lt;DoubleGene, Double&gt; stream = engine.stream();
+ * }&lt;/pre&gt;
+ *
+ * The order of the alterer calls is: Crossover, Mutation and MeanAlterer.
+ *
+ * @param &lt;G&gt; the gene type
+ * @param &lt;C&gt; the fitness function result type
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.0
+ */
+@FunctionalInterface
+public interface Alterer&lt;
+	G extends Gene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+{
+
+	public static final double DEFAULT_ALTER_PROBABILITY = 0.2;
+
+	/**
+	 * Alters (recombine) a given population. If the {@code population} is empty,
+	 * nothing is altered. The altering of the population is done in place; the
+	 * given &lt;i&gt;population&lt;/i&gt; is altered.
+	 *
+	 * @param population The Population to be altered. If the
+	 *        {@code population} is {@code null} or empty, nothing is altered.
+	 * @param generation the date of birth (generation) of the altered phenotypes.
+	 * @return the number of genes that has been altered.
+	 * @throws NullPointerException if the given {@code population} is
+	 *        {@code null}.
+	 */
+	public int alter(final Population&lt;G, C&gt; population, final long generation);
+
+	/**
+	 * Returns a composed alterer that first applies the {@code before} alterer
+	 * to its input, and then applies {@code this} alterer to the result.
+	 *
+	 * @param before the alterer to apply first
+	 * @return the new composed alterer
+	 */
+	public default Alterer&lt;G, C&gt; compose(final Alterer&lt;G, C&gt; before) {
+<span class="nc" id="L80">		return of(before, this);</span>
+	}
+
+	/**
+	 * Returns a composed alterer that applies the {@code this} alterer
+	 * to its input, and then applies the {@code after} alterer to the result.
+	 *
+	 * @param after the alterer to apply first
+	 * @return the new composed alterer
+	 */
+	public default Alterer&lt;G, C&gt; andThen(final Alterer&lt;G, C&gt; after) {
+<span class="nc" id="L91">		return of(this, after);</span>
+	}
+
+	/**
+	 * Combine the given alterers.
+	 *
+	 * @param &lt;G&gt; the gene type
+	 * @param &lt;C&gt; the fitness function result type
+	 * @param alterers the alterers to combine.
+	 * @return a new alterer which consists of the given one
+	 * @throws NullPointerException if one of the alterers is {@code null}.
+	 */
+	@SafeVarargs
+	public static &lt;G extends Gene&lt;?, G&gt;, C extends Comparable&lt;? super C&gt;&gt;
+	Alterer&lt;G, C&gt; of(final Alterer&lt;G, C&gt;... alterers) {
+<span class="pc bpc" id="L106" title="2 of 4 branches missed.">		return alterers.length == 0</span>
+			? (p, g) -&gt; 0
+			: alterers.length == 1
+				? alterers[0]
+<span class="fc" id="L110">				: new CompositeAlterer&lt;G, C&gt;(ISeq.of(alterers));</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

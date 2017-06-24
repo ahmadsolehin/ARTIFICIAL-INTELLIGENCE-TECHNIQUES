@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>LongGene.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">LongGene.java</span></div><h1>LongGene.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static org.jenetics.internal.math.random.nextLong;
+import static org.jenetics.util.RandomRegistry.getRandom;
+
+import java.io.Serializable;
+import java.util.Random;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+import javax.xml.bind.annotation.XmlValue;
+import javax.xml.bind.annotation.adapters.XmlAdapter;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+
+import org.jenetics.util.ISeq;
+import org.jenetics.util.LongRange;
+import org.jenetics.util.MSeq;
+import org.jenetics.util.Mean;
+
+/**
+ * NumericGene implementation which holds a 64 bit integer number.
+ *
+ * &lt;p&gt;This is a &lt;a href=&quot;https://docs.oracle.com/javase/8/docs/api/java/lang/doc-files/ValueBased.html&quot;&gt;
+ * value-based&lt;/a&gt; class; use of identity-sensitive operations (including
+ * reference equality ({@code ==}), identity hash code, or synchronization) on
+ * instances of {@code LongGene} may have unpredictable results and should
+ * be avoided.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.6
+ * @version 3.2
+ */
+@XmlJavaTypeAdapter(LongGene.Model.Adapter.class)
+public final class LongGene
+	extends AbstractNumericGene&lt;Long, LongGene&gt;
+	implements
+		NumericGene&lt;Long, LongGene&gt;,
+		Mean&lt;LongGene&gt;,
+		Comparable&lt;LongGene&gt;,
+		Serializable
+{
+
+	private static final long serialVersionUID = 1L;
+
+	/**
+	 * Create a new random {@code LongGene} with the given value and the
+	 * given range. If the {@code value} isn't within the interval [min, max],
+	 * no exception is thrown. In this case the method
+	 * {@link LongGene#isValid()} returns {@code false}.
+	 *
+	 * @param value the value of the gene.
+	 * @param min the minimal valid value of this gene (inclusively).
+	 * @param max the maximal valid value of this gene (inclusively).
+	 * @throws NullPointerException if one of the arguments is {@code null}.
+	 */
+	LongGene(final Long value, final Long min, final Long max) {
+<span class="fc" id="L79">		super(value, min, max);</span>
+<span class="fc" id="L80">	}</span>
+
+	@Override
+	public int compareTo(final LongGene other) {
+<span class="fc" id="L84">		return _value.compareTo(other._value);</span>
+	}
+
+	/**
+	 * Create a new random {@code LongGene} with the given value and the
+	 * given range. If the {@code value} isn't within the interval [min, max],
+	 * no exception is thrown. In this case the method
+	 * {@link LongGene#isValid()} returns {@code false}.
+	 *
+	 * @param value the value of the gene.
+	 * @param min the minimal valid value of this gene (inclusively).
+	 * @param max the maximal valid value of this gene (inclusively).
+	 * @return a new {@code LongGene} with the given parameters.
+	 */
+	public static LongGene of(final long value, final long min, final long max) {
+<span class="fc" id="L99">		return new LongGene(value, min, max);</span>
+	}
+
+	/**
+	 * Create a new random {@code LongGene} with the given value and the
+	 * given range. If the {@code value} isn't within the interval [min, max],
+	 * no exception is thrown. In this case the method
+	 * {@link LongGene#isValid()} returns {@code false}.
+	 *
+	 * @since 3.2
+	 *
+	 * @param value the value of the gene.
+	 * @param range the long range to use
+	 * @return a new random {@code LongGene}
+	 * @throws NullPointerException if the given {@code range} is {@code null}.
+	 */
+	public static LongGene of(final long value, final LongRange range) {
+<span class="fc" id="L116">		return new LongGene(value, range.getMin(), range.getMax());</span>
+	}
+
+	/**
+	 * Create a new random {@code LongGene}. It is guaranteed that the value of
+	 * the {@code LongGene} lies in the interval [min, max].
+	 *
+	 * @param min the minimal valid value of this gene (inclusively).
+	 * @param max the maximal valid value of this gene (inclusively).
+	 * @return a new {@code LongGene} with the given parameters.
+	 */
+	public static LongGene of(final long min, final long max) {
+<span class="fc" id="L128">		return of(nextLong(getRandom(), min, max), min, max);</span>
+	}
+
+	/**
+	 * Create a new random {@code LongGene}. It is guaranteed that the value of
+	 * the {@code LongGene} lies in the interval [min, max].
+	 *
+	 * @since 3.2
+	 *
+	 * @param range the long range to use
+	 * @return a new random {@code LongGene}
+	 * @throws NullPointerException if the given {@code range} is {@code null}.
+	 */
+	public static LongGene of(final LongRange range) {
+<span class="fc" id="L142">		return of(nextLong(getRandom(), range.getMin(), range.getMax()), range);</span>
+	}
+
+	static ISeq&lt;LongGene&gt; seq(
+		final Long minimum,
+		final Long maximum,
+		final int length
+	) {
+<span class="fc" id="L150">		final long min = minimum;</span>
+<span class="fc" id="L151">		final long max = maximum;</span>
+<span class="fc" id="L152">		final Random r = getRandom();</span>
+
+<span class="fc" id="L154">		return MSeq.&lt;LongGene&gt;ofLength(length)</span>
+<span class="fc" id="L155">			.fill(() -&gt; new LongGene(nextLong(r, min, max), minimum, maximum))</span>
+<span class="fc" id="L156">			.toISeq();</span>
+	}
+
+	@Override
+	public LongGene newInstance(final Number number) {
+<span class="fc" id="L161">		return new LongGene(number.longValue(), _min, _max);</span>
+	}
+
+	@Override
+	public LongGene newInstance() {
+<span class="fc" id="L166">		return new LongGene(</span>
+<span class="fc" id="L167">			nextLong(getRandom(), _min, _max), _min, _max</span>
+		);
+	}
+
+	@Override
+	public LongGene mean(final LongGene that) {
+<span class="fc" id="L173">		return new LongGene(_value + (that._value - _value)/2, _min, _max);</span>
+	}
+
+	/* *************************************************************************
+	 *  JAXB object serialization
+	 * ************************************************************************/
+
+	@XmlRootElement(name = &quot;long-gene&quot;)
+	@XmlType(name = &quot;org.jenetics.LongGene&quot;)
+	@XmlAccessorType(XmlAccessType.FIELD)
+<span class="fc" id="L183">	final static class Model {</span>
+
+		@XmlAttribute(name = &quot;min&quot;, required = true)
+		public long min;
+
+		@XmlAttribute(name = &quot;max&quot;, required = true)
+		public long max;
+
+		@XmlValue
+		public long value;
+
+<span class="fc" id="L194">		public final static class Adapter</span>
+			extends XmlAdapter&lt;Model, LongGene&gt;
+		{
+			@Override
+			public Model marshal(final LongGene value) {
+<span class="nc" id="L199">				final Model m = new Model();</span>
+<span class="nc" id="L200">				m.min = value.getMin();</span>
+<span class="nc" id="L201">				m.max = value.getMax();</span>
+<span class="nc" id="L202">				m.value = value.getAllele();</span>
+<span class="nc" id="L203">				return m;</span>
+			}
+
+			@Override
+			public LongGene unmarshal(final Model m) {
+<span class="fc" id="L208">				return LongGene.of(m.value, m.min, m.max);</span>
+			}
+		}
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

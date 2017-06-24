@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MeanAlterer.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">MeanAlterer.java</span></div><h1>MeanAlterer.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.lang.String.format;
+
+import java.util.Random;
+
+import org.jenetics.internal.util.Hash;
+
+import org.jenetics.util.ISeq;
+import org.jenetics.util.MSeq;
+import org.jenetics.util.Mean;
+import org.jenetics.util.RandomRegistry;
+import org.jenetics.util.Seq;
+
+/**
+ * &lt;p&gt;
+ * The order ({@link #getOrder()}) of this Recombination implementation is two.
+ * &lt;/p&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.0
+ */
+public final class MeanAlterer&lt;
+	G extends Gene&lt;?, G&gt; &amp; Mean&lt;G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+	extends Recombinator&lt;G, C&gt;
+{
+
+	/**
+	 * Constructs an alterer with a given recombination probability.
+	 *
+	 * @param probability the crossover probability.
+	 * @throws IllegalArgumentException if the {@code probability} is not in the
+	 *         valid range of {@code [0, 1]}.
+	 */
+	public MeanAlterer(final double probability) {
+<span class="fc" id="L58">		super(probability, 2);</span>
+<span class="fc" id="L59">	}</span>
+
+	/**
+	 * Create a new alterer with alter probability of {@code 0.05}.
+	 */
+	public MeanAlterer() {
+<span class="fc" id="L65">		this(0.05);</span>
+<span class="fc" id="L66">	}</span>
+
+	@Override
+	protected int recombine(
+		final Population&lt;G, C&gt; population,
+		final int[] individuals,
+		final long generation
+	) {
+<span class="fc" id="L74">		final Random random = RandomRegistry.getRandom();</span>
+
+<span class="fc" id="L76">		final Phenotype&lt;G, C&gt; pt1 = population.get(individuals[0]);</span>
+<span class="fc" id="L77">		final Phenotype&lt;G, C&gt; pt2 = population.get(individuals[1]);</span>
+<span class="fc" id="L78">		final Genotype&lt;G&gt; gt1 = pt1.getGenotype();</span>
+<span class="fc" id="L79">		final Genotype&lt;G&gt; gt2 = pt2.getGenotype();</span>
+
+<span class="fc" id="L81">		final int cindex = random.nextInt(gt1.length());</span>
+<span class="fc" id="L82">		final MSeq&lt;Chromosome&lt;G&gt;&gt; c1 = gt1.toSeq().copy();</span>
+<span class="fc" id="L83">		final ISeq&lt;Chromosome&lt;G&gt;&gt; c2 = gt2.toSeq();</span>
+
+		// Calculate the mean value of the gene array.
+<span class="fc" id="L86">		final MSeq&lt;G&gt; mean = mean(</span>
+<span class="fc" id="L87">			c1.get(cindex).toSeq().copy(),</span>
+<span class="fc" id="L88">			c2.get(cindex).toSeq()</span>
+		);
+
+<span class="fc" id="L91">		c1.set(cindex, c1.get(cindex).newInstance(mean.toISeq()));</span>
+
+<span class="fc" id="L93">		population.set(</span>
+			individuals[0],
+<span class="fc" id="L95">			pt1.newInstance(gt1.newInstance(c1.toISeq()), generation)</span>
+		);
+
+<span class="fc" id="L98">		return 1;</span>
+	}
+
+	private static &lt;G extends Gene&lt;?, G&gt; &amp; Mean&lt;G&gt;&gt;
+	MSeq&lt;G&gt; mean(final MSeq&lt;G&gt; a, final Seq&lt;G&gt; b) {
+<span class="fc bfc" id="L103" title="All 2 branches covered.">		for (int i = a.length(); --i &gt;= 0;) {</span>
+<span class="fc" id="L104">			a.set(i, a.get(i).mean(b.get(i)));</span>
+		}
+<span class="fc" id="L106">		return a;</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="nc" id="L111">		return Hash.of(getClass()).and(super.hashCode()).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="pc bpc" id="L116" title="2 of 4 branches missed.">		return obj instanceof MeanAlterer &amp;&amp; super.equals(obj);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="nc" id="L121">		return format(&quot;%s[p=%f]&quot;, getClass().getSimpleName(), _probability);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

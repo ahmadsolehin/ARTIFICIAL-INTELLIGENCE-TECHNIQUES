@@ -1,0 +1,561 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>bit.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.util</a> &gt; <span class="el_source">bit.java</span></div><h1>bit.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.util;
+
+import static java.lang.Integer.parseInt;
+import static java.lang.Math.min;
+
+import org.jenetics.internal.math.random;
+
+import org.jenetics.util.RandomRegistry;
+
+
+/**
+ * Some bit utils. All operation assume &lt;a href=&quot;http://en.wikipedia.org/wiki/Endianness&quot;&gt;
+ * &lt;b&gt;little-endian&lt;/b&gt;&lt;/a&gt; byte order.
+ *
+ * &lt;pre&gt;
+ *  Byte:       3        2        1        0
+ *              |        |        |        |
+ *  Array: |11110011|10011101|01000000|00101010|
+ *          |                 |        |      |
+ *  Bit:    23                15       7      0
+ * &lt;/pre&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.0
+ */
+public final class bit {
+<span class="nc" id="L47">	private bit() {require.noInstance();}</span>
+
+	/**
+	 * Lookup table for counting the number of set bits in a {@code byte} value.
+	 */
+<span class="fc" id="L52">	private static final byte[] BIT_SET_TABLE = {</span>
+		(byte)1, (byte)2, (byte)2, (byte)3, (byte)2, (byte)3, (byte)3, (byte)4,
+		(byte)2, (byte)3, (byte)3, (byte)4, (byte)3, (byte)4, (byte)4, (byte)5,
+		(byte)2, (byte)3, (byte)3, (byte)4, (byte)3, (byte)4, (byte)4, (byte)5,
+		(byte)3, (byte)4, (byte)4, (byte)5, (byte)4, (byte)5, (byte)5, (byte)6,
+		(byte)2, (byte)3, (byte)3, (byte)4, (byte)3, (byte)4, (byte)4, (byte)5,
+		(byte)3, (byte)4, (byte)4, (byte)5, (byte)4, (byte)5, (byte)5, (byte)6,
+		(byte)3, (byte)4, (byte)4, (byte)5, (byte)4, (byte)5, (byte)5, (byte)6,
+		(byte)4, (byte)5, (byte)5, (byte)6, (byte)5, (byte)6, (byte)6, (byte)7,
+		(byte)2, (byte)3, (byte)3, (byte)4, (byte)3, (byte)4, (byte)4, (byte)5,
+		(byte)3, (byte)4, (byte)4, (byte)5, (byte)4, (byte)5, (byte)5, (byte)6,
+		(byte)3, (byte)4, (byte)4, (byte)5, (byte)4, (byte)5, (byte)5, (byte)6,
+		(byte)4, (byte)5, (byte)5, (byte)6, (byte)5, (byte)6, (byte)6, (byte)7,
+		(byte)3, (byte)4, (byte)4, (byte)5, (byte)4, (byte)5, (byte)5, (byte)6,
+		(byte)4, (byte)5, (byte)5, (byte)6, (byte)5, (byte)6, (byte)6, (byte)7,
+		(byte)4, (byte)5, (byte)5, (byte)6, (byte)5, (byte)6, (byte)6, (byte)7,
+		(byte)5, (byte)6, (byte)6, (byte)7, (byte)6, (byte)7, (byte)7, (byte)8,
+		(byte)0, (byte)1, (byte)1, (byte)2, (byte)1, (byte)2, (byte)2, (byte)3,
+		(byte)1, (byte)2, (byte)2, (byte)3, (byte)2, (byte)3, (byte)3, (byte)4,
+		(byte)1, (byte)2, (byte)2, (byte)3, (byte)2, (byte)3, (byte)3, (byte)4,
+		(byte)2, (byte)3, (byte)3, (byte)4, (byte)3, (byte)4, (byte)4, (byte)5,
+		(byte)1, (byte)2, (byte)2, (byte)3, (byte)2, (byte)3, (byte)3, (byte)4,
+		(byte)2, (byte)3, (byte)3, (byte)4, (byte)3, (byte)4, (byte)4, (byte)5,
+		(byte)2, (byte)3, (byte)3, (byte)4, (byte)3, (byte)4, (byte)4, (byte)5,
+		(byte)3, (byte)4, (byte)4, (byte)5, (byte)4, (byte)5, (byte)5, (byte)6,
+		(byte)1, (byte)2, (byte)2, (byte)3, (byte)2, (byte)3, (byte)3, (byte)4,
+		(byte)2, (byte)3, (byte)3, (byte)4, (byte)3, (byte)4, (byte)4, (byte)5,
+		(byte)2, (byte)3, (byte)3, (byte)4, (byte)3, (byte)4, (byte)4, (byte)5,
+		(byte)3, (byte)4, (byte)4, (byte)5, (byte)4, (byte)5, (byte)5, (byte)6,
+		(byte)2, (byte)3, (byte)3, (byte)4, (byte)3, (byte)4, (byte)4, (byte)5,
+		(byte)3, (byte)4, (byte)4, (byte)5, (byte)4, (byte)5, (byte)5, (byte)6,
+		(byte)3, (byte)4, (byte)4, (byte)5, (byte)4, (byte)5, (byte)5, (byte)6,
+		(byte)4, (byte)5, (byte)5, (byte)6, (byte)5, (byte)6, (byte)6, (byte)7
+	};
+	private static final int BIT_SET_TABLE_INDEX_OFFSET = 128;
+
+	/**
+	 * Return the (boolean) value of the byte array at the given bit index.
+	 *
+	 * @param data the byte array.
+	 * @param index the bit index.
+	 * @return the value at the given bit index.
+	 * @throws IndexOutOfBoundsException if the index is
+	 *          {@code index &gt;= max || index &lt; 0}.
+	 * @throws NullPointerException if the {@code data} array is {@code null}.
+	 */
+	public static boolean get(final byte[] data, final int index) {
+<span class="fc bfc" id="L99" title="All 2 branches covered.">		return (data[index &gt;&gt;&gt; 3] &amp; (1 &lt;&lt; (index &amp; 7))) != 0;</span>
+	}
+
+	/**
+	 * Set the bit in the given byte array at the bit position (not the index
+	 * within the byte array) to the specified value.
+	 *
+	 * @param data the byte array.
+	 * @param index the bit index within the byte array.
+	 * @param value the value to set.
+	 * @return the given data array.
+	 * @throws IndexOutOfBoundsException if the index is
+	 *         {@code index &gt;= max || index &lt; 0}.
+	 * @throws NullPointerException if the {@code data} array is {@code null}.
+	 */
+	public static byte[] set(
+		final byte[] data,
+		final int index,
+		final boolean value
+	) {
+<span class="fc bfc" id="L119" title="All 2 branches covered.">		return value ? set(data, index) : unset(data, index);</span>
+	}
+
+	/**
+	 * Set the bit in the given byte array at the bit position (not the index
+	 * within the byte array) to {@code true}.
+	 *
+	 * @param data the byte array.
+	 * @param index the bit index within the byte array.
+	 * @return the given data array.
+	 * @throws IndexOutOfBoundsException if the index is
+	 *          {@code index &gt;= max || index &lt; 0}.
+	 * @throws NullPointerException if the {@code data} array is {@code null}.
+	 */
+	public static byte[] set(final byte[] data, final int index) {
+<span class="fc" id="L134">		data[index &gt;&gt;&gt; 3] |= 1 &lt;&lt; (index &amp; 7);</span>
+<span class="fc" id="L135">		return data;</span>
+	}
+
+	/**
+	 * Set the bit in the given byte array at the bit position (not the index
+	 * within the byte array) to {@code false}.
+	 *
+	 * @param data the byte array.
+	 * @param index the bit index within the byte array.
+	 * @return the given data array.
+	 * @throws IndexOutOfBoundsException if the index is
+	 *          {@code index &gt;= max || index &lt; 0}.
+	 * @throws NullPointerException if the {@code data} array is {@code null}.
+	 */
+	public static byte[] unset(final byte[] data, final int index) {
+<span class="fc" id="L150">		data[index &gt;&gt;&gt; 3] &amp;= ~(1 &lt;&lt; (index &amp; 7));</span>
+<span class="fc" id="L151">		return data;</span>
+	}
+
+	/**
+	 * Swap a given range with a range of the same size with another array.
+	 *
+	 * &lt;pre&gt;
+	 *                start            end
+	 *                  |               |
+	 * data:      +---+---+---+---+---+---+---+---+---+---+---+---+
+	 *              +---------------+
+	 *                              +---------------+
+	 * otherData: +---+---+---+---+---+---+---+---+---+---+---+---+
+	 *                              |
+	 *                          otherStart
+	 * &lt;/pre&gt;
+	 *
+	 * @param data the first byte array which are used for swapping.
+	 * @param start the start bit index of the {@code data} byte array,
+	 *        inclusively.
+	 * @param end the end bit index of the {@code data} byte array, exclusively.
+	 * @param otherData the other byte array to swap the elements with.
+	 * @param otherStart the start index of the {@code otherData} byte array.
+	 * @throws IndexOutOfBoundsException if {@code start &gt; end} or
+	 *         if {@code start &lt; 0 || end &gt;= data.length*8 || otherStart &lt; 0 ||
+	 *         otherStart + (end - start) &gt;= otherData.length*8}
+	 */
+	public static void swap(
+		final byte[] data, final int start, final int end,
+		final byte[] otherData, final int otherStart
+	) {
+<span class="fc bfc" id="L182" title="All 2 branches covered.">		for (int i = end - start; --i &gt;= 0;) {</span>
+<span class="fc" id="L183">			final boolean temp = get(data, i + start);</span>
+<span class="fc" id="L184">			set(data, i + start, get(otherData, otherStart + i));</span>
+<span class="fc" id="L185">			set(otherData, otherStart + i, temp);</span>
+<span class="fc" id="L186">		}</span>
+<span class="fc" id="L187">	}</span>
+
+	/**
+	 * Returns the number of one-bits in the given {@code byte} array.
+	 *
+	 * @param data the {@code byte} array for which the one bits should be
+	 *        counted.
+	 * @return the number of one bits in the given {@code byte} array.
+	 */
+	public static int count(final byte[] data) {
+<span class="fc" id="L197">		int count = 0;</span>
+<span class="fc bfc" id="L198" title="All 2 branches covered.">		for (int i = data.length; --i &gt;= 0;) {</span>
+<span class="fc" id="L199">			count += count(data[i]);</span>
+		}
+<span class="fc" id="L201">		return count;</span>
+	}
+
+	/**
+	 * Returns the number of one-bits in the given {@code byte} {@code value}.
+	 *
+	 * @param value the value for which the one bits should be counted.
+	 * @return the number of one bits in the given value
+	 */
+	public static int count(final byte value) {
+<span class="fc" id="L211">		return BIT_SET_TABLE[value + BIT_SET_TABLE_INDEX_OFFSET];</span>
+	}
+
+	/**
+	 * Shifting all bits in the given {@code data} array the given
+	 * {@code shift} to the right. The bits on the left side are filled with
+	 * zeros.
+	 *
+	 * @param data the data bits to shift.
+	 * @param shift the number of bits to shift.
+	 * @return the given {@code data} array.
+	 * @throws NullPointerException if the {@code data} array is {@code null}.
+	 */
+	public static byte[] shiftRight(final byte[] data, final int shift) {
+<span class="fc" id="L225">		final int bytes = min(shift &gt;&gt;&gt; 3, data.length);</span>
+<span class="fc" id="L226">		final int bits = shift &amp; 7;</span>
+
+<span class="fc bfc" id="L228" title="All 2 branches covered.">		if (bytes &gt; 0) {</span>
+<span class="fc bfc" id="L229" title="All 2 branches covered.">			for (int i = 0, n = data.length - bytes; i &lt; n; ++i) {</span>
+<span class="fc" id="L230">				data[i] = data[i + bytes];</span>
+			}
+<span class="fc bfc" id="L232" title="All 2 branches covered.">			for (int i = data.length, n = data.length - bytes; --i &gt;= n;) {</span>
+<span class="fc" id="L233">				data[i] = (byte)0;</span>
+			}
+		}
+<span class="fc bfc" id="L236" title="All 4 branches covered.">		if (bits &gt; 0 &amp;&amp; bytes &lt; data.length) {</span>
+<span class="fc" id="L237">			int carry = 0;</span>
+<span class="fc" id="L238">			int nextCarry = 0;</span>
+
+<span class="fc bfc" id="L240" title="All 2 branches covered.">			for (int i = data.length; --i &gt;= 0;) {</span>
+<span class="fc" id="L241">				int d = data[i] &amp; 0xFF;</span>
+<span class="fc" id="L242">				nextCarry = d &lt;&lt; (Byte.SIZE - bits);</span>
+
+<span class="fc" id="L244">				d &gt;&gt;&gt;= bits;</span>
+<span class="fc" id="L245">				d |= carry;</span>
+<span class="fc" id="L246">				data[i] = (byte)(d &amp; 0xFF);</span>
+
+<span class="fc" id="L248">				carry = nextCarry;</span>
+<span class="fc" id="L249">			}</span>
+		}
+
+<span class="fc" id="L252">		return data;</span>
+	}
+
+	/**
+	 * Shifting all bits in the given {@code data} array the given
+	 * {@code shift} to the left. The bits on the right side are filled with
+	 * zeros.
+	 *
+	 * @param data the data bits to shift.
+	 * @param shift the number of bits to shift.
+	 * @return the given {@code data} array.
+	 * @throws NullPointerException if the {@code data} array is {@code null}.
+	 */
+	public static byte[] shiftLeft(final byte[] data, final int shift) {
+<span class="fc" id="L266">		final int bytes = min(shift &gt;&gt;&gt; 3, data.length);</span>
+<span class="fc" id="L267">		final int bits = shift &amp; 7;</span>
+
+<span class="fc bfc" id="L269" title="All 2 branches covered.">		if (bytes &gt; 0) {</span>
+<span class="fc bfc" id="L270" title="All 2 branches covered.">			for (int i = 0, n = data.length - bytes; i &lt; n; ++i) {</span>
+<span class="fc" id="L271">				data[data.length - 1 - i] = data[data.length - 1 - i - bytes];</span>
+			}
+<span class="fc bfc" id="L273" title="All 2 branches covered.">			for (int i = 0; i &lt; bytes; ++i) {</span>
+<span class="fc" id="L274">				data[i] = (byte)0;</span>
+			}
+		}
+<span class="fc bfc" id="L277" title="All 4 branches covered.">		if (bits &gt; 0 &amp;&amp; bytes &lt; data.length) {</span>
+<span class="fc" id="L278">			int carry = 0;</span>
+<span class="fc" id="L279">			int nextCarry = 0;</span>
+
+<span class="fc bfc" id="L281" title="All 2 branches covered.">			for (int i = bytes; i &lt; data.length; ++i) {</span>
+<span class="fc" id="L282">				int d = data[i] &amp; 0xFF;</span>
+<span class="fc" id="L283">				nextCarry = d &gt;&gt;&gt; (Byte.SIZE - bits);</span>
+
+<span class="fc" id="L285">				d &lt;&lt;= bits;</span>
+<span class="fc" id="L286">				d |= carry;</span>
+<span class="fc" id="L287">				data[i] = (byte)(d &amp; 0xFF);</span>
+
+<span class="fc" id="L289">				carry = nextCarry;</span>
+			}
+		}
+
+<span class="fc" id="L293">		return data;</span>
+	}
+
+	/**
+	 * Increment the given {@code data} array.
+	 *
+	 * @param data the given {@code data} array.
+	 * @return the given {@code data} array.
+	 * @throws NullPointerException if the {@code data} array is {@code null}.
+	 */
+	public static byte[] increment(final byte[] data) {
+<span class="fc" id="L304">		boolean carry = true;</span>
+<span class="pc bpc" id="L305" title="1 of 4 branches missed.">		for (int i = 0; i &lt; data.length &amp;&amp; carry; ++i) {</span>
+<span class="fc" id="L306">			data[i] = (byte)(data[i] + 1);</span>
+<span class="pc bpc" id="L307" title="1 of 2 branches missed.">			carry = data[i] &gt; 0xFF;</span>
+		}
+
+<span class="fc" id="L310">		return data;</span>
+	}
+
+	/**
+	 * Invert the given {@code data} array.
+	 *
+	 * @param data the given {@code data} array.
+	 * @return the given {@code data} array.
+	 * @throws NullPointerException if the {@code data} array is {@code null}.
+	 */
+	public static byte[] invert(final byte[] data)	{
+<span class="fc bfc" id="L321" title="All 2 branches covered.">		for (int i = data.length; --i &gt;= 0;) {</span>
+<span class="fc" id="L322">			data[i] = (byte)~data[i];</span>
+		}
+<span class="fc" id="L324">		return data;</span>
+	}
+
+	/**
+	 * Make the two's complement of the given {@code data} array.
+	 *
+	 * @param data the given {@code data} array.
+	 * @return the given {@code data} array.
+	 * @throws NullPointerException if the {@code data} array is {@code null}.
+	 */
+	public static byte[] complement(final byte[] data) {
+<span class="fc" id="L335">		return increment(invert(data));</span>
+	}
+
+	/**
+	 * Flip the bit at the given index.
+	 *
+	 * @param data the data array.
+	 * @param index the index of the bit to flip.
+	 * @return the input array, for command chaining
+	 * @throws IndexOutOfBoundsException if the index is
+	 *          {@code index &gt;= max || index &lt; 0}.
+	 * @throws NullPointerException if the {@code data} array is {@code null}.
+	 */
+	public static byte[] flip(final byte[] data, final int index) {
+<span class="fc bfc" id="L349" title="All 2 branches covered.">		return get(data, index) ? unset(data, index) : set(data, index);</span>
+	}
+
+	public static byte[] reverse(final byte[] array) {
+<span class="fc" id="L353">		int i = 0;</span>
+<span class="fc" id="L354">		int j = array.length;</span>
+
+<span class="fc bfc" id="L356" title="All 2 branches covered.">		while (i &lt; j) {</span>
+<span class="fc" id="L357">			swap(array, i++, --j);</span>
+		}
+
+<span class="fc" id="L360">		return array;</span>
+	}
+
+	private static void swap(final byte[] array, final int i, final int j) {
+<span class="fc" id="L364">		final byte temp = array[i];</span>
+<span class="fc" id="L365">		array[i] = array[j];</span>
+<span class="fc" id="L366">		array[j] = temp;</span>
+<span class="fc" id="L367">	}</span>
+
+	/**
+	 * Copies the specified range of the specified array into a new array.
+	 *
+	 * @param data the bits from which a range is to be copied
+	 * @param start the initial index of the range to be copied, inclusive
+	 * @param end the final index of the range to be copied, exclusive.
+	 * @return a new array containing the specified range from the original array
+	 * @throws ArrayIndexOutOfBoundsException if start &amp;lt; 0 or
+	 *         start &amp;gt; data.length*8
+	 * @throws IllegalArgumentException if start &amp;gt; end
+	 * @throws NullPointerException if the {@code data} array is
+	 *         {@code null}.
+	 */
+	public static byte[] copy(final byte[] data, final int start, final int end) {
+<span class="pc bpc" id="L383" title="1 of 2 branches missed.">		if (start &gt; end) {</span>
+<span class="nc" id="L384">			throw new IllegalArgumentException(String.format(</span>
+<span class="nc" id="L385">				&quot;start &gt; end: %d &gt; %d&quot;, start, end</span>
+			));
+		}
+<span class="pc bpc" id="L388" title="2 of 4 branches missed.">		if (start &lt; 0 || start &gt; data.length &lt;&lt; 3) {</span>
+<span class="nc" id="L389">			throw new ArrayIndexOutOfBoundsException(String.format(</span>
+<span class="nc" id="L390">				&quot;%d &lt; 0 || %d &gt; %d&quot;, start, start, data.length*8</span>
+			));
+		}
+
+<span class="fc" id="L394">		final int to = min(data.length &lt;&lt; 3, end);</span>
+<span class="fc" id="L395">		final int byteStart = start &gt;&gt;&gt; 3;</span>
+<span class="fc" id="L396">		final int bitStart = start &amp; 7;</span>
+<span class="fc" id="L397">		final int bitLength = to - start;</span>
+
+<span class="fc" id="L399">		final byte[] copy = new byte[toByteLength(to - start)];</span>
+
+<span class="fc bfc" id="L401" title="All 2 branches covered.">		if (copy.length &gt; 0) {</span>
+			// Perform the byte wise right shift.
+<span class="fc" id="L403">			System.arraycopy(data, byteStart, copy, 0, copy.length);</span>
+
+			// Do the remaining bit wise right shift.
+<span class="fc" id="L406">			shiftRight(copy, bitStart);</span>
+
+			// Add the 'lost' bits from the next byte, if available.
+<span class="fc bfc" id="L409" title="All 2 branches covered.">			if (data.length &gt; copy.length + byteStart) {</span>
+<span class="fc" id="L410">				copy[copy.length - 1] |= (byte)(data[byteStart + copy.length]</span>
+					&lt;&lt; (Byte.SIZE - bitStart));
+			}
+
+			// Trim (delete) the overhanging bits.
+<span class="fc" id="L415">			copy[copy.length - 1] &amp;= 0xFF &gt;&gt;&gt; ((copy.length &lt;&lt; 3) - bitLength);</span>
+		}
+
+<span class="fc" id="L418">		return copy;</span>
+	}
+
+	public static boolean getAndSet(final byte[] array, final int index) {
+<span class="fc" id="L422">		final boolean result = get(array, index);</span>
+<span class="fc" id="L423">		set(array, index);</span>
+<span class="fc" id="L424">		return result;</span>
+	}
+
+	/**
+	 * Convert a binary representation of the given byte array to a string. The
+	 * string has the following format:
+	 * &lt;pre&gt;
+	 *  Byte:       3        2        1        0
+	 *              |        |        |        |
+	 *  Array: &quot;11110011|10011101|01000000|00101010&quot;
+	 *          |                 |        |      |
+	 *  Bit:    23                15       7      0
+	 * &lt;/pre&gt;
+	 * &lt;i&gt;Only the array string is printed.&lt;/i&gt;
+	 *
+	 * @see #fromByteString(String)
+	 *
+	 * @param data the byte array to convert to a string.
+	 * @return the binary representation of the given byte array.
+	 */
+	public static String toByteString(final byte... data) {
+<span class="fc" id="L445">		final StringBuilder out = new StringBuilder();</span>
+
+<span class="pc bpc" id="L447" title="1 of 2 branches missed.">		if (data.length &gt; 0) {</span>
+<span class="fc bfc" id="L448" title="All 2 branches covered.">			for (int j = 7; j &gt;= 0; --j) {</span>
+<span class="fc" id="L449">				out.append((data[data.length - 1] &gt;&gt;&gt; j) &amp; 1);</span>
+			}
+		}
+<span class="fc bfc" id="L452" title="All 2 branches covered.">		for (int i = data.length - 2; i &gt;= 0 ;--i) {</span>
+<span class="fc" id="L453">			out.append('|');</span>
+<span class="fc bfc" id="L454" title="All 2 branches covered.">			for (int j = 7; j &gt;= 0; --j) {</span>
+<span class="fc" id="L455">				out.append((data[i] &gt;&gt;&gt; j) &amp; 1);</span>
+			}
+		}
+
+<span class="fc" id="L459">		return out.toString();</span>
+	}
+
+	/**
+	 * Convert a string which was created with the {@link #toByteString(byte...)}
+	 * method back to an byte array.
+	 *
+	 * @see #toByteString(byte...)
+	 *
+	 * @param data the string to convert.
+	 * @return the byte array.
+	 * @throws IllegalArgumentException if the given data string could not be
+	 *          converted.
+	 */
+	 public static byte[] fromByteString(final String data) {
+<span class="fc" id="L474">		final String[] parts = data.split(&quot;\\|&quot;);</span>
+<span class="fc" id="L475">		final byte[] bytes = new byte[parts.length];</span>
+
+<span class="fc bfc" id="L477" title="All 2 branches covered.">		for (int i = 0; i &lt; parts.length; ++i) {</span>
+<span class="pc bpc" id="L478" title="1 of 2 branches missed.">			if (parts[i].length() != Byte.SIZE) {</span>
+<span class="nc" id="L479">				throw new IllegalArgumentException(</span>
+					&quot;Byte value doesn't contain 8 bit: &quot; + parts[i]
+				);
+			}
+
+			try {
+<span class="fc" id="L485">				bytes[parts.length - 1 - i] = (byte)parseInt(parts[i], 2);</span>
+<span class="nc" id="L486">			} catch (NumberFormatException e) {</span>
+<span class="nc" id="L487">				throw new IllegalArgumentException(e);</span>
+<span class="fc" id="L488">			}</span>
+		}
+
+<span class="fc" id="L491">		return bytes;</span>
+	}
+
+	/**
+	 * Create a new {@code byte[]} array which can store at least the number
+	 * of bits as defined by the given {@code length} parameter.
+	 *
+	 * @param length the number of bits, the returned byte array can store.
+	 * @return the new byte array.s
+	 */
+	public static byte[] newArray(final int length) {
+<span class="fc" id="L502">		return new byte[toByteLength(length)];</span>
+	}
+
+	/**
+	 * Create a new {@code byte[]} array which can store at least the number
+	 * of bits as defined by the given {@code length} parameter. The returned
+	 * byte array is initialized with ones according to the given ones
+	 * probability {@code p}.
+	 *
+	 * @param length the number of bits, the returned byte array can store.
+	 * @param p the ones probability of the returned byte array.
+	 * @return the new byte array.s
+	 * @throws IllegalArgumentException if {@code p} is not a valid probability.
+	 */
+	public static byte[] newArray(final int length, final double p) {
+<span class="fc" id="L517">		final byte[] bytes = newArray(length);</span>
+
+<span class="fc" id="L519">		random.indexes(RandomRegistry.getRandom(), length, p)</span>
+<span class="fc" id="L520">			.forEach(i -&gt; bytes[i &gt;&gt;&gt; 3] |= 1 &lt;&lt; (i &amp; 7));</span>
+
+<span class="fc" id="L522">		return bytes;</span>
+	}
+
+	/**
+	 * Return the minimum number of bytes to store the given number of bits.
+	 *
+	 * @param bitLength the number of bits
+	 * @return the number of bytes needed to store the given number of bits.
+	 */
+	public static int toByteLength(final int bitLength) {
+<span class="fc bfc" id="L532" title="All 2 branches covered.">		return (bitLength &amp; 7) == 0 ? (bitLength &gt;&gt;&gt; 3) : (bitLength &gt;&gt;&gt; 3) + 1;</span>
+	}
+
+	public static long toLong(final byte[] data) {
+<span class="fc" id="L536">		return</span>
+			((long)data[0] &lt;&lt; 56) +
+			((long)(data[1] &amp; 255) &lt;&lt; 48) +
+			((long)(data[2] &amp; 255) &lt;&lt; 40) +
+			((long)(data[3] &amp; 255) &lt;&lt; 32) +
+			((long)(data[4] &amp; 255) &lt;&lt; 24) +
+			((data[5] &amp; 255) &lt;&lt; 16) +
+			((data[6] &amp; 255) &lt;&lt;  8) +
+			(data[7] &amp; 255);
+	}
+
+	public static byte[] toBytes(final long value) {
+<span class="fc" id="L548">		final byte[] bytes = new byte[8];</span>
+<span class="fc" id="L549">		bytes[0] = (byte)(value &gt;&gt;&gt; 56);</span>
+<span class="fc" id="L550">		bytes[1] = (byte)(value &gt;&gt;&gt; 48);</span>
+<span class="fc" id="L551">		bytes[2] = (byte)(value &gt;&gt;&gt; 40);</span>
+<span class="fc" id="L552">		bytes[3] = (byte)(value &gt;&gt;&gt; 32);</span>
+<span class="fc" id="L553">		bytes[4] = (byte)(value &gt;&gt;&gt; 24);</span>
+<span class="fc" id="L554">		bytes[5] = (byte)(value &gt;&gt;&gt; 16);</span>
+<span class="fc" id="L555">		bytes[6] = (byte)(value &gt;&gt;&gt;  8);</span>
+<span class="fc" id="L556">		bytes[7] = (byte) value;</span>
+<span class="fc" id="L557">		return bytes;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

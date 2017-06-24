@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>SeqSpliterator.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.collection</a> &gt; <span class="el_source">SeqSpliterator.java</span></div><h1>SeqSpliterator.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.collection;
+
+import static java.util.Objects.requireNonNull;
+
+import java.util.Spliterator;
+import java.util.function.Consumer;
+
+import org.jenetics.util.Seq;
+
+/**
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.0
+ * @version 3.0
+ */
+public class SeqSpliterator&lt;T&gt; implements Spliterator&lt;T&gt; {
+
+	private final Seq&lt;T&gt; _seq;
+	private final int _fence;
+	private int _index;
+
+	public SeqSpliterator(
+		final Seq&lt;T&gt; seq,
+		final int origin,
+		final int fence
+<span class="nc" id="L44">	) {</span>
+<span class="nc" id="L45">		_seq = requireNonNull(seq);</span>
+<span class="nc" id="L46">		_index = origin;</span>
+<span class="nc" id="L47">		_fence = fence;</span>
+<span class="nc" id="L48">	}</span>
+
+	public SeqSpliterator(final Seq&lt;T&gt; seq) {
+<span class="nc" id="L51">		this(seq, 0, seq.length());</span>
+<span class="nc" id="L52">	}</span>
+
+	@Override
+	public void forEachRemaining(final Consumer&lt;? super T&gt; action) {
+<span class="nc" id="L56">		requireNonNull(action);</span>
+
+		Seq&lt;T&gt; seq;
+		int i;
+		int hi;
+
+<span class="nc bnc" id="L62" title="All 6 branches missed.">		if ((seq = _seq).length() &gt;= (hi = _fence) &amp;&amp;</span>
+			(i = _index) &gt;= 0 &amp;&amp; i &lt; (_index = hi))
+		{
+			do {
+<span class="nc" id="L66">				action.accept(seq.get(i));</span>
+<span class="nc bnc" id="L67" title="All 2 branches missed.">			} while (++i &lt; hi);</span>
+		}
+<span class="nc" id="L69">	}</span>
+
+	@Override
+	public boolean tryAdvance(final Consumer&lt;? super T&gt; action) {
+<span class="nc bnc" id="L73" title="All 4 branches missed.">		if (_index &gt;= 0 &amp;&amp; _index &lt; _fence) {</span>
+<span class="nc" id="L74">			action.accept(_seq.get(_index++));</span>
+<span class="nc" id="L75">			return true;</span>
+		}
+<span class="nc" id="L77">		return false;</span>
+	}
+
+	@Override
+	public Spliterator&lt;T&gt; trySplit() {
+<span class="nc" id="L82">		final int lo = _index;</span>
+<span class="nc" id="L83">		final int mid = (lo + _fence) &gt;&gt;&gt; 1;</span>
+
+<span class="nc bnc" id="L85" title="All 2 branches missed.">		return (lo &gt;= mid)</span>
+			? null
+			: new SeqSpliterator&lt;&gt;(_seq, lo, _index = mid);
+	}
+
+	@Override
+	public long estimateSize() {
+<span class="nc" id="L92">		return _fence - _index;</span>
+	}
+
+	@Override
+	public int characteristics() {
+<span class="nc" id="L97">		return Spliterator.NONNULL | Spliterator.SIZED | Spliterator.SUBSIZED;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

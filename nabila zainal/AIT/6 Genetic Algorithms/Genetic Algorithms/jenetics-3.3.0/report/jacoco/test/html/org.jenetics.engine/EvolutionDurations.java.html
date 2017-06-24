@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>EvolutionDurations.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.engine</a> &gt; <span class="el_source">EvolutionDurations.java</span></div><h1>EvolutionDurations.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.engine;
+
+import static java.util.Objects.requireNonNull;
+import static org.jenetics.internal.util.Equality.eq;
+
+import java.io.Serializable;
+import java.time.Duration;
+
+import org.jenetics.internal.util.Hash;
+
+/**
+ * This class contains timing information about one evolution step.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.0
+ * @version 3.0
+ */
+public final class EvolutionDurations
+	implements
+		Comparable&lt;EvolutionDurations&gt;,
+		Serializable
+{
+	private static final long serialVersionUID = 1L;
+
+	/**
+	 * Constant for zero evolution durations.
+	 */
+<span class="fc" id="L47">	public static final EvolutionDurations ZERO = EvolutionDurations.of(</span>
+		Duration.ZERO,
+		Duration.ZERO,
+		Duration.ZERO,
+		Duration.ZERO,
+		Duration.ZERO,
+		Duration.ZERO,
+		Duration.ZERO
+	);
+
+	private final Duration _offspringSelectionDuration;
+	private final Duration _survivorsSelectionDuration;
+	private final Duration _offspringAlterDuration;
+	private final Duration _offspringFilterDuration;
+	private final Duration _survivorFilterDuration;
+	private final Duration _evaluationDuration;
+	private final Duration _evolveDuration;
+
+	EvolutionDurations(
+		final Duration offspringSelectionDuration,
+		final Duration survivorsSelectionDuration,
+		final Duration offspringAlterDuration,
+		final Duration offspringFilterDuration,
+		final Duration survivorFilterDuration,
+		final Duration evaluationDuration,
+		final Duration evolveDuration
+<span class="fc" id="L73">	) {</span>
+<span class="fc" id="L74">		_offspringSelectionDuration = requireNonNull(offspringSelectionDuration);</span>
+<span class="fc" id="L75">		_survivorsSelectionDuration = requireNonNull(survivorsSelectionDuration);</span>
+<span class="fc" id="L76">		_offspringAlterDuration = requireNonNull(offspringAlterDuration);</span>
+<span class="fc" id="L77">		_offspringFilterDuration = requireNonNull(offspringFilterDuration);</span>
+<span class="fc" id="L78">		_survivorFilterDuration = requireNonNull(survivorFilterDuration);</span>
+<span class="fc" id="L79">		_evaluationDuration = requireNonNull(evaluationDuration);</span>
+<span class="fc" id="L80">		_evolveDuration = requireNonNull(evolveDuration);</span>
+<span class="fc" id="L81">	}</span>
+
+	/**
+	 * Return the duration needed for selecting the offspring population.
+	 *
+	 * @return the duration needed for selecting the offspring population
+	 */
+	public Duration getOffspringSelectionDuration() {
+<span class="nc" id="L89">		return _offspringSelectionDuration;</span>
+	}
+
+	/**
+	 * Return the duration needed for selecting the survivors population.
+	 *
+	 * @return the duration needed for selecting the survivors population
+	 */
+	public Duration getSurvivorsSelectionDuration() {
+<span class="nc" id="L98">		return _survivorsSelectionDuration;</span>
+	}
+
+	/**
+	 * Return the duration needed for altering the offspring population.
+	 *
+	 * @return the duration needed for altering the offspring population
+	 */
+	public Duration getOffspringAlterDuration() {
+<span class="nc" id="L107">		return _offspringAlterDuration;</span>
+	}
+
+	/**
+	 * Return the duration needed for removing and replacing invalid offspring
+	 * individuals.
+	 *
+	 * @return the duration needed for removing and replacing invalid offspring
+	 *         individuals
+	 */
+	public Duration getOffspringFilterDuration() {
+<span class="nc" id="L118">		return _offspringFilterDuration;</span>
+	}
+
+	/**
+	 * Return the duration needed for removing and replacing old and invalid
+	 * survivor individuals.
+	 *
+	 * @return the duration needed for removing and replacing old and invalid
+	 *         survivor individuals
+	 */
+	public Duration getSurvivorFilterDuration() {
+<span class="nc" id="L129">		return _survivorFilterDuration;</span>
+	}
+
+	/**
+	 * Return the duration needed for evaluating the fitness function of the new
+	 * individuals.
+	 *
+	 * @return the duration needed for evaluating the fitness function of the new
+	 *         individuals
+	 */
+	public Duration getEvaluationDuration() {
+<span class="nc" id="L140">		return _evaluationDuration;</span>
+	}
+
+	/**
+	 * Return the duration needed for the whole evolve step.
+	 *
+	 * @return the duration needed for the whole evolve step
+	 */
+	public Duration getEvolveDuration() {
+<span class="nc" id="L149">		return _evolveDuration;</span>
+	}
+
+	/**
+	 * Compares two durations objects. Only the {@link #getEvolveDuration()}
+	 * property is taken into account for the comparison.
+	 *
+	 * @param other the other durations object this object is compared with
+	 * @return a integer smaller/equal/greater than 0 if the
+	 *         {@link #getEvolveDuration()} property of {@code this} object is
+	 *         smaller/equal/greater than the corresponding property of the
+	 *         {@code other} project.
+	 */
+	@Override
+	public int compareTo(final EvolutionDurations other) {
+<span class="nc" id="L164">		return _evolveDuration.compareTo(other._evolveDuration);</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L169">		return Hash.of(getClass())</span>
+<span class="fc" id="L170">			.and(_offspringSelectionDuration)</span>
+<span class="fc" id="L171">			.and(_survivorsSelectionDuration)</span>
+<span class="fc" id="L172">			.and(_offspringAlterDuration)</span>
+<span class="fc" id="L173">			.and(_offspringFilterDuration)</span>
+<span class="fc" id="L174">			.and(_survivorFilterDuration)</span>
+<span class="fc" id="L175">			.and(_evaluationDuration)</span>
+<span class="fc" id="L176">			.and(_evolveDuration).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc bfc" id="L181" title="All 2 branches covered.">		return obj instanceof EvolutionDurations &amp;&amp;</span>
+<span class="fc bfc" id="L182" title="All 2 branches covered.">			eq(_offspringSelectionDuration,</span>
+				((EvolutionDurations)obj)._offspringSelectionDuration) &amp;&amp;
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">			eq(_survivorsSelectionDuration,</span>
+				((EvolutionDurations)obj)._survivorsSelectionDuration) &amp;&amp;
+<span class="pc bpc" id="L186" title="1 of 2 branches missed.">			eq(_offspringAlterDuration,</span>
+				((EvolutionDurations)obj)._offspringAlterDuration) &amp;&amp;
+<span class="pc bpc" id="L188" title="1 of 2 branches missed.">			eq(_offspringFilterDuration,</span>
+				((EvolutionDurations)obj)._offspringFilterDuration) &amp;&amp;
+<span class="pc bpc" id="L190" title="1 of 2 branches missed.">			eq(_survivorFilterDuration,</span>
+				((EvolutionDurations)obj)._survivorFilterDuration) &amp;&amp;
+<span class="pc bpc" id="L192" title="1 of 2 branches missed.">			eq(_evaluationDuration,</span>
+				((EvolutionDurations)obj)._evaluationDuration) &amp;&amp;
+<span class="pc bpc" id="L194" title="1 of 2 branches missed.">			eq(_evolveDuration,</span>
+				((EvolutionDurations)obj)._evolveDuration);
+	}
+
+	/**
+	 * Return an new {@code EvolutionDurations} object with the given values.
+	 *
+	 * @param offspringSelectionDuration the duration needed for selecting the
+	 *        offspring population
+	 * @param survivorsSelectionDuration the duration needed for selecting the
+	 *        survivors population
+	 * @param offspringAlterDuration the duration needed for altering the
+	 *        offspring population
+	 * @param offspringFilterDuration the duration needed for removing and
+	 *        replacing invalid offspring individuals
+	 * @param survivorFilterDuration the duration needed for removing and
+	 *        replacing old and invalid survivor individuals
+	 * @param evaluationDuration the duration needed for evaluating the fitness
+	 *        function of the new individuals
+	 * @param evolveDuration the duration needed for the whole evolve step
+	 * @return an new durations object
+	 * @throws NullPointerException if one of the arguments is
+	 *         {@code null}
+	 */
+	public static EvolutionDurations of(
+		final Duration offspringSelectionDuration,
+		final Duration survivorsSelectionDuration,
+		final Duration offspringAlterDuration,
+		final Duration offspringFilterDuration,
+		final Duration survivorFilterDuration,
+		final Duration evaluationDuration,
+		final Duration evolveDuration
+	) {
+<span class="fc" id="L227">		return new EvolutionDurations(</span>
+			offspringSelectionDuration,
+			survivorsSelectionDuration,
+			offspringAlterDuration,
+			offspringFilterDuration,
+			survivorFilterDuration,
+			evaluationDuration,
+			evolveDuration
+		);
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

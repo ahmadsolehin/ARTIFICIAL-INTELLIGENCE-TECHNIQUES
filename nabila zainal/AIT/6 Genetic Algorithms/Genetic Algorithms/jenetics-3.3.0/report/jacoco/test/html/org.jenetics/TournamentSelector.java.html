@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>TournamentSelector.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">TournamentSelector.java</span></div><h1>TournamentSelector.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.maxBy;
+
+import java.util.Random;
+import java.util.stream.IntStream;
+
+import org.jenetics.internal.util.Equality;
+import org.jenetics.internal.util.Hash;
+
+import org.jenetics.util.RandomRegistry;
+
+/**
+ * In tournament selection the best individual from a random sample of &lt;i&gt;s&lt;/i&gt;
+ * individuals is chosen from the population &lt;i&gt;P&lt;sub&gt;g&lt;/sub&gt;&lt;/i&gt;. The samples
+ * are drawn with replacement. An individual will win a tournament only if its
+ * fitness is greater than the fitness of the other &lt;i&gt;s-1&lt;/i&gt;  competitors.
+ * Note that the worst individual never survives, and the best individual wins
+ * in all the tournaments it participates. The selection pressure can be varied
+ * by changing the tournament size &lt;i&gt;s&lt;/i&gt; . For large values of &lt;i&gt;s&lt;/i&gt;, weak
+ * individuals have less chance being selected.
+ *
+ * @see &lt;a href=&quot;http://en.wikipedia.org/wiki/Tournament_selection&quot;&gt;Tournament selection&lt;/a&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 2.0
+ */
+public class TournamentSelector&lt;
+	G extends Gene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+	implements Selector&lt;G, C&gt;
+{
+
+	private final int _sampleSize;
+
+	/**
+	 * Create a tournament selector with the give sample size. The sample size
+	 * must be greater than one.
+	 *
+	 * @param sampleSize the number of individuals involved in one tournament
+	 * @throws IllegalArgumentException if the sample size is smaller than two.
+	 */
+<span class="fc" id="L66">	public TournamentSelector(final int sampleSize) {</span>
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">		if (sampleSize &lt; 2) {</span>
+<span class="nc" id="L68">			throw new IllegalArgumentException(</span>
+				&quot;Sample size must be greater than one, but was &quot; + sampleSize
+			);
+		}
+<span class="fc" id="L72">		_sampleSize = sampleSize;</span>
+<span class="fc" id="L73">	}</span>
+
+	/**
+	 * Create a tournament selector with sample size two.
+	 */
+	public TournamentSelector() {
+<span class="nc" id="L79">		this(2);</span>
+<span class="nc" id="L80">	}</span>
+
+	@Override
+	public Population&lt;G, C&gt; select(
+		final Population&lt;G, C&gt; population,
+		final int count,
+		final Optimize opt
+	) {
+<span class="fc" id="L88">		requireNonNull(population, &quot;Population&quot;);</span>
+<span class="fc" id="L89">		requireNonNull(opt, &quot;Optimization&quot;);</span>
+<span class="fc bfc" id="L90" title="All 2 branches covered.">		if (count &lt; 0) {</span>
+<span class="fc" id="L91">			throw new IllegalArgumentException(format(</span>
+				&quot;Selection count must be greater or equal then zero, but was %s&quot;,
+<span class="fc" id="L93">				count</span>
+			));
+		}
+
+<span class="fc" id="L97">		final Random random = RandomRegistry.getRandom();</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">		return population.isEmpty()</span>
+			? new Population&lt;&gt;(0)
+			: new Population&lt;G, C&gt;(count)
+<span class="fc" id="L101">				.fill(() -&gt; select(population, opt, _sampleSize, random), count);</span>
+	}
+
+	private Phenotype&lt;G, C&gt; select(
+		final Population&lt;G, C&gt; population,
+		final Optimize opt,
+		final int sampleSize,
+		final Random random
+	) {
+<span class="fc" id="L110">		final int N = population.size();</span>
+<span class="fc" id="L111">		return IntStream.range(0, sampleSize)</span>
+<span class="fc" id="L112">			.mapToObj(i -&gt; population.get(random.nextInt(N)))</span>
+<span class="fc" id="L113">			.collect(maxBy(opt.ascending())).get();</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L118">		return Hash.of(getClass()).and(_sampleSize).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc" id="L123">		return Equality.of(this, obj).test(s -&gt; _sampleSize == s._sampleSize);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L128">		return format(&quot;%s[s=%d]&quot;, getClass().getSimpleName(), _sampleSize);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

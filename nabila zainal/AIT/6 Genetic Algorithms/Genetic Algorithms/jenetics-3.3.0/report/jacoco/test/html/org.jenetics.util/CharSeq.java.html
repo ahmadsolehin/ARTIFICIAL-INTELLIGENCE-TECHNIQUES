@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>CharSeq.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.util</a> &gt; <span class="el_source">CharSeq.java</span></div><h1>CharSeq.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.util;
+
+import static java.util.Objects.requireNonNull;
+import static org.jenetics.internal.util.Equality.eq;
+
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collector;
+
+import org.jenetics.internal.collection.ArrayProxyISeq;
+import org.jenetics.internal.collection.CharArrayProxy;
+import org.jenetics.internal.util.Equality;
+import org.jenetics.internal.util.Hash;
+
+/**
+ * This class is used for holding the valid characters of an
+ * {@link org.jenetics.CharacterGene}. It is not a character sequence in the
+ * classical sense. The characters of this sequence are sorted and doesn't
+ * contain duplicate values, like a set.
+ *
+ * &lt;pre&gt;{@code
+ * final CharSeq cs1 = new CharSeq(&quot;abcdeaafg&quot;);
+ * final CharSeq cs2 = new CharSeq(&quot;gfedcbabb&quot;);
+ * assert(cs1.equals(cs2));
+ * }&lt;/pre&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 2.0
+ */
+public final class CharSeq
+	extends CharSeqBase
+	implements
+		CharSequence,
+		ISeq&lt;Character&gt;,
+		Comparable&lt;CharSeq&gt;,
+		Serializable
+{
+	private static final long serialVersionUID = 2L;
+
+	/**
+	 * Create a new (distinct) CharSeq from the given {@code characters}. The
+	 * given {@link CharSequence} is sorted and duplicate values are removed
+	 *
+	 * @see #CharSeq(CharSequence)
+	 *
+	 * @param characters the characters.
+	 * @throws NullPointerException if the {@code characters} are {@code null}.
+	 */
+	public CharSeq(final char[] characters) {
+<span class="fc" id="L71">		super(distinct(characters.clone()));</span>
+<span class="fc" id="L72">	}</span>
+
+	/**
+	 * Create a new (distinct) CharSeq from the given {@code characters}. The
+	 * given {@link CharSequence} is sorted and duplicate values are removed.
+	 *
+	 * @param characters the characters.
+	 * @throws NullPointerException if the {@code characters} are {@code null}.
+	 */
+	public CharSeq(final CharSequence characters) {
+<span class="fc" id="L82">		super(distinct(toCharArray(characters)));</span>
+<span class="fc" id="L83">	}</span>
+
+	private static char[] toCharArray(final CharSequence characters) {
+<span class="fc" id="L86">		requireNonNull(characters, &quot;Characters&quot;);</span>
+
+<span class="fc" id="L88">		final char[] chars = new char[characters.length()];</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">		for (int i = chars.length; --i &gt;= 0;) {</span>
+<span class="fc" id="L90">			chars[i] = characters.charAt(i);</span>
+		}
+
+<span class="fc" id="L93">		return chars;</span>
+	}
+
+	private static char[] distinct(final char[] chars) {
+<span class="fc" id="L97">		Arrays.sort(chars);</span>
+
+<span class="fc" id="L99">		int j = 0;</span>
+<span class="fc bfc" id="L100" title="All 2 branches covered.">		for (int i = 1; i &lt; chars.length; ++i) {</span>
+<span class="fc bfc" id="L101" title="All 2 branches covered.">			if (chars[j] != chars[i]) {</span>
+<span class="fc" id="L102">				chars[++j] = chars[i];</span>
+			}
+		}
+
+<span class="fc" id="L106">		final int size = Math.min(chars.length, j + 1);</span>
+<span class="fc" id="L107">		final char[] array = new char[size];</span>
+<span class="fc" id="L108">		System.arraycopy(chars, 0, array, 0, size);</span>
+<span class="fc" id="L109">		return array;</span>
+	}
+
+	@Override
+	public boolean contains(final Object object) {
+<span class="nc bnc" id="L114" title="All 4 branches missed.">		return object instanceof Character &amp;&amp; contains((Character)object);</span>
+	}
+
+	/**
+	 * Test whether this character set contains the given character {@code c}.
+	 *
+	 * @param c the character to test.
+	 * @return {@code true} if this character set contains the given character,
+	 *          {@code false} otherwise.
+	 * @throws NullPointerException if the given character {@code c} is
+	 *          {@code null}.
+	 */
+	public boolean contains(final Character c) {
+<span class="fc" id="L127">		return contains(c.charValue());</span>
+	}
+
+	/**
+	 * Test whether this character set contains the given character {@code c}.
+	 *
+	 * @param c the character to test.
+	 * @return {@code true} if this character set contains the given character,
+	 *          {@code false} otherwise.
+	 */
+	public boolean contains(final char c) {
+<span class="fc bfc" id="L138" title="All 2 branches covered.">		return Arrays.binarySearch(proxy.array, c) &gt;= 0;</span>
+	}
+
+	@Override
+	public char charAt(final int index) {
+<span class="nc" id="L143">		return proxy.array[index];</span>
+	}
+
+	@Override
+	public int length() {
+<span class="fc" id="L148">		return proxy.array.length;</span>
+	}
+
+	@Override
+	public CharSeq subSequence(final int start, final int end) {
+<span class="fc" id="L153">		return new CharSeq(new String(proxy.array, start, end - start));</span>
+	}
+
+	/**
+	 * Test whether this character set is empty.
+	 *
+	 * @return {@code true} if this character set is empty, {@code false}
+	 *          otherwise.
+	 */
+	public boolean isEmpty() {
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">		return proxy.array.length == 0;</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L168">		return Hash.of(getClass())</span>
+<span class="fc" id="L169">			.and(proxy.array).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc" id="L174">		return Equality.of(this, obj).test(ch -&gt;</span>
+			eq(proxy.array, ch.proxy.array)
+		);
+	}
+
+	@Override
+	public int compareTo(final CharSeq set) {
+<span class="nc" id="L181">		int result = 0;</span>
+
+<span class="nc" id="L183">		final int n = Math.min(proxy.array.length, set.proxy.array.length);</span>
+<span class="nc bnc" id="L184" title="All 4 branches missed.">		for (int i = 0; i &lt; n &amp;&amp; result == 0; ++i) {</span>
+<span class="nc" id="L185">			result = proxy.array[i] - set.proxy.array[i];</span>
+		}
+<span class="nc bnc" id="L187" title="All 2 branches missed.">		if (result == 0) {</span>
+<span class="nc" id="L188">			result = proxy.array.length - set.proxy.array.length;</span>
+		}
+
+<span class="nc" id="L191">		return result;</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L196">		return new String(proxy.array);</span>
+	}
+
+	/**
+	 * Expands the character range for the given {@code pattern}. E.g
+	 * {@code a-zA-Z0-1} will return a string containing all upper and lower
+	 * case characters (from a to z) and all digits form 0 to 9.
+	 *
+	 * @param pattern the {@code pattern} to expand.
+	 * @return the expanded pattern.
+	 * @throws PatternSyntaxException if the pattern could not be expanded.
+	 * @throws NullPointerException if the pattern is {@code null}.
+	 */
+	public static String expand(final CharSequence pattern) {
+<span class="fc" id="L210">		requireNonNull(pattern, &quot;Pattern&quot;);</span>
+<span class="fc" id="L211">		final StringBuilder out = new StringBuilder();</span>
+
+<span class="fc bfc" id="L213" title="All 2 branches covered.">		for (int i = 0, n = pattern.length(); i &lt; n; ++i) {</span>
+<span class="fc bfc" id="L214" title="All 2 branches covered.">			if (pattern.charAt(i) == '\\') {</span>
+<span class="fc" id="L215">				++i;</span>
+<span class="pc bpc" id="L216" title="1 of 2 branches missed.">				if (i &lt; pattern.length()) {</span>
+<span class="fc" id="L217">					out.append(pattern.charAt(i));</span>
+				}
+<span class="fc bfc" id="L219" title="All 2 branches covered.">			} else if (pattern.charAt(i) == '-') {</span>
+<span class="fc bfc" id="L220" title="All 4 branches covered.">				if (i &lt;= 0 || i &gt;= (pattern.length() - 1)) {</span>
+<span class="fc" id="L221">					throw new PatternSyntaxException(</span>
+<span class="fc" id="L222">						&quot;Dangling range operator '-'&quot;, pattern.toString(),</span>
+<span class="fc" id="L223">						pattern.length() - 1</span>
+					);
+				}
+
+<span class="fc" id="L227">				final String range = expand(</span>
+<span class="fc" id="L228">					pattern.charAt(i - 1),</span>
+<span class="fc" id="L229">					pattern.charAt(i + 1)</span>
+				);
+<span class="fc" id="L231">				out.append(range);</span>
+
+<span class="fc" id="L233">				++i;</span>
+<span class="fc bfc" id="L234" title="All 4 branches covered.">			} else if (i + 1 == n || pattern.charAt(i + 1) != '-') {</span>
+<span class="fc" id="L235">				out.append(pattern.charAt(i));</span>
+			}
+		}
+
+<span class="fc" id="L239">		return out.toString();</span>
+	}
+
+	/**
+	 * Expands the characters between {@code a} and {@code b}.
+	 *
+	 * @param a the start character.
+	 * @param b the stop character.
+	 * @return the expanded characters.
+	 */
+	public static String expand(final char a, final char b) {
+<span class="fc" id="L250">		final StringBuilder out = new StringBuilder();</span>
+
+<span class="pc bpc" id="L252" title="1 of 2 branches missed.">		if (a &lt; b) {</span>
+<span class="fc" id="L253">			char c = a;</span>
+<span class="fc bfc" id="L254" title="All 2 branches covered.">			while (c &lt;= b) {</span>
+<span class="fc" id="L255">				out.append(c);</span>
+<span class="fc" id="L256">				c = (char) (c + 1);</span>
+			}
+<span class="pc bnc" id="L258" title="All 2 branches missed.">		} else if (a &gt; b) {</span>
+<span class="nc" id="L259">			char c = a;</span>
+<span class="nc bnc" id="L260" title="All 2 branches missed.">			while (c &gt;= b) {</span>
+<span class="nc" id="L261">				out.append(c);</span>
+<span class="nc" id="L262">				c = (char)(c - 1);</span>
+			}
+		}
+
+<span class="fc" id="L266">		return out.toString();</span>
+	}
+
+	/**
+	 * Expands the character range for the given {@code pattern}. E.g.
+	 * {@code a-zA-Z0-1} will return a string containing all upper and lower
+	 * case characters (from a to z) and all digits form 0 to 9.
+	 *
+	 * @see #expand(CharSequence)
+	 *
+	 * @param pattern the {@code pattern} to expand.
+	 * @return the expanded pattern.
+	 * @throws PatternSyntaxException if the pattern could not be expanded.
+	 * @throws NullPointerException if the pattern is {@code null}.
+	 */
+	public static CharSeq of(final CharSequence pattern) {
+<span class="fc" id="L282">		return new CharSeq(expand(pattern));</span>
+	}
+
+	/**
+	 * Expands the characters between {@code a} and {@code b}.
+	 *
+	 * @see #expand(char, char)
+	 *
+	 * @param a the start character.
+	 * @param b the stop character.
+	 * @return the expanded characters.
+	 */
+	public static CharSeq of(final char a, final char b) {
+<span class="nc" id="L295">		return new CharSeq(expand(a, b));</span>
+	}
+
+	/**
+	 * Helper method for creating a sequence of characters from the given
+	 * {@code CharSequence}. The returned sequence will contain all characters
+	 * in the original order.
+	 *
+	 * @param chars the char sequence to convert.
+	 * @return a sequence which will contain all given chars in the original
+	 *         order.
+	 */
+	public static ISeq&lt;Character&gt; toISeq(final CharSequence chars) {
+<span class="fc" id="L308">		final MSeq&lt;Character&gt; seq = MSeq.ofLength(chars.length());</span>
+<span class="fc bfc" id="L309" title="All 2 branches covered.">		for (int i = 0; i &lt; chars.length(); ++i) {</span>
+<span class="fc" id="L310">			seq.set(i, chars.charAt(i));</span>
+		}
+
+<span class="fc" id="L313">		return seq.toISeq();</span>
+	}
+
+	public static Collector&lt;Character, ?, CharSeq&gt; toCharSeq() {
+<span class="nc" id="L317">		return Collector.of(</span>
+			StringBuilder::new,
+			StringBuilder::append,
+			(a, b) -&gt; {a.append(b); return a;},
+			CharSeq::new
+		);
+	}
+
+}
+
+abstract class CharSeqBase extends ArrayProxyISeq&lt;Character, CharArrayProxy&gt; {
+	private static final long serialVersionUID = 1L;
+	protected CharSeqBase(final char[] characters) {
+<span class="fc" id="L330">		super(new CharArrayProxy(characters, 0, characters.length));</span>
+<span class="fc" id="L331">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

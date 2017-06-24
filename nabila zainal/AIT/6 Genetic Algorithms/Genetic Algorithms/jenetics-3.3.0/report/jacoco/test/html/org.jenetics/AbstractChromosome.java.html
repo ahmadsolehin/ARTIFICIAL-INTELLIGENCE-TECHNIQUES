@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>AbstractChromosome.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">AbstractChromosome.java</span></div><h1>AbstractChromosome.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.util.Objects.requireNonNull;
+import static org.jenetics.internal.util.Equality.eq;
+
+import java.io.Serializable;
+import java.util.Iterator;
+import java.util.Objects;
+import java.util.RandomAccess;
+
+import org.jenetics.internal.util.Equality;
+import org.jenetics.internal.util.Hash;
+import org.jenetics.internal.util.reflect;
+
+import org.jenetics.util.ISeq;
+import org.jenetics.util.Verifiable;
+
+/**
+ * The abstract base implementation of the Chromosome interface. The implementors
+ * of this class must assure that the protected member {@code _genes} is not
+ * {@code null} and the length of the {@code genes} &amp;gt; 0.
+ *
+ * @param &lt;G&gt; the gene type.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 2.0
+ */
+<span class="pc bpc" id="L48" title="1 of 2 branches missed.">public abstract class AbstractChromosome&lt;G extends Gene&lt;?, G&gt;&gt;</span>
+	implements
+		Chromosome&lt;G&gt;,
+		RandomAccess,
+		Serializable
+{
+	private static final long serialVersionUID = 1L;
+
+	/**
+	 * Array of genes which forms the chromosome. This array must
+	 * be initialized by the derived classes.
+	 */
+<span class="fc" id="L60">	protected transient ISeq&lt;G&gt; _genes = null;</span>
+
+	/**
+	 * Indicates whether this chromosome is valid or not. If the variable is
+	 * {@code null} the validation state hasn't been calculated yet.
+	 */
+<span class="fc" id="L66">	protected transient Boolean _valid = null;</span>
+
+	/**
+	 * Create a new {@code AbstractChromosome} from the given {@code genes}
+	 * array.
+	 *
+	 * @param genes the genes that form the chromosome.
+	 * @throws NullPointerException if the given gene array is {@code null}.
+	 * @throws IllegalArgumentException if the length of the gene sequence is
+	 *         empty.
+	 */
+<span class="fc" id="L77">	protected AbstractChromosome(final ISeq&lt;? extends G&gt; genes) {</span>
+<span class="fc" id="L78">		requireNonNull(genes, &quot;Gene array&quot;);</span>
+<span class="pc bpc" id="L79" title="2 of 4 branches missed.">		assert genes.forAll(Objects::nonNull) : &quot;Found at least on null gene.&quot;;</span>
+
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">		if (genes.isEmpty()) {</span>
+<span class="nc" id="L82">			throw new IllegalArgumentException(</span>
+				&quot;The genes sequence must contain at least one gene.&quot;
+			);
+		}
+
+<span class="fc" id="L87">		_genes = reflect.cast(genes);</span>
+<span class="fc" id="L88">	}</span>
+
+	@Override
+	public G getGene(final int index) {
+<span class="fc" id="L92">		return _genes.get(index);</span>
+	}
+
+	@Override
+	public ISeq&lt;G&gt; toSeq() {
+<span class="fc" id="L97">		return _genes;</span>
+	}
+
+	@Override
+	public boolean isValid() {
+<span class="fc bfc" id="L102" title="All 2 branches covered.">		if (_valid == null) {</span>
+<span class="fc" id="L103">			_valid = _genes.forAll(Verifiable::isValid);</span>
+		}
+
+<span class="fc" id="L106">		return _valid;</span>
+	}
+
+	@Override
+	public Iterator&lt;G&gt; iterator() {
+<span class="fc" id="L111">		return _genes.iterator();</span>
+	}
+
+	@Override
+	public int length() {
+<span class="fc" id="L116">		return _genes.length();</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L121">		return Hash.of(getClass()).and(_genes).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc" id="L126">		return Equality.of(this, obj).test(ch -&gt; eq(_genes, ch._genes));</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L131">		return _genes.toString();</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

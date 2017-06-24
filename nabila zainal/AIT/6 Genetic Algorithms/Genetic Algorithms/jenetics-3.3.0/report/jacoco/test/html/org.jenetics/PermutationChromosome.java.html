@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>PermutationChromosome.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">PermutationChromosome.java</span></div><h1>PermutationChromosome.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.lang.String.format;
+import static org.jenetics.internal.util.bit.getAndSet;
+import static org.jenetics.util.MSeq.toMSeq;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlElementWrapper;
+import javax.xml.bind.annotation.XmlList;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+import javax.xml.bind.annotation.adapters.XmlAdapter;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+
+import org.jenetics.internal.util.Equality;
+import org.jenetics.internal.util.Hash;
+import org.jenetics.internal.util.IntRef;
+import org.jenetics.internal.util.bit;
+import org.jenetics.internal.util.jaxb;
+import org.jenetics.internal.util.reflect;
+import org.jenetics.internal.util.require;
+
+import org.jenetics.util.ISeq;
+import org.jenetics.util.MSeq;
+import org.jenetics.util.RandomRegistry;
+import org.jenetics.util.Seq;
+
+/**
+ * The mutable methods of the {@link AbstractChromosome} has been overridden so
+ * that no invalid permutation will be created.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 2.0
+ */
+@XmlJavaTypeAdapter(PermutationChromosome.Model.Adapter.class)
+public final class PermutationChromosome&lt;T&gt;
+	extends AbstractChromosome&lt;EnumGene&lt;T&gt;&gt;
+	implements Serializable
+{
+	private static final long serialVersionUID = 2L;
+
+	private ISeq&lt;T&gt; _validAlleles;
+
+	public PermutationChromosome(final ISeq&lt;EnumGene&lt;T&gt;&gt; genes) {
+<span class="fc" id="L77">		super(genes);</span>
+<span class="fc" id="L78">		_validAlleles = genes.get(0).getValidAlleles();</span>
+<span class="fc" id="L79">	}</span>
+
+	public ISeq&lt;T&gt; getValidAlleles() {
+<span class="fc" id="L82">		return _validAlleles;</span>
+	}
+
+	/**
+	 * Check if this chromosome represents still a valid permutation.
+	 */
+	@Override
+	public boolean isValid() {
+<span class="fc bfc" id="L90" title="All 2 branches covered.">		if (_valid == null) {</span>
+<span class="fc" id="L91">			final byte[] check = bit.newArray(length());</span>
+<span class="fc" id="L92">			_valid = _genes.forAll(g -&gt; !getAndSet(check, g.getAlleleIndex()));</span>
+		}
+
+<span class="fc" id="L95">		return _valid;</span>
+	}
+
+	/**
+	 * Create a new, &lt;em&gt;random&lt;/em&gt; chromosome.
+	 */
+	@Override
+	public PermutationChromosome&lt;T&gt; newInstance() {
+<span class="fc" id="L103">		return of(_validAlleles);</span>
+	}
+
+	@Override
+	public PermutationChromosome&lt;T&gt; newInstance(final ISeq&lt;EnumGene&lt;T&gt;&gt; genes) {
+<span class="fc" id="L108">		return new PermutationChromosome&lt;&gt;(genes);</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L113">		return Hash.of(getClass())</span>
+<span class="fc" id="L114">				.and(super.hashCode())</span>
+<span class="fc" id="L115">				.value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc" id="L120">		return Equality.of(this, obj).test(super::equals);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L125">		return _genes.asList().stream()</span>
+<span class="fc" id="L126">			.map(g -&gt; g.getAllele().toString())</span>
+<span class="fc" id="L127">			.collect(Collectors.joining(&quot;|&quot;));</span>
+	}
+
+	/**
+	 * Create a new, random chromosome with the given valid alleles.
+	 *
+	 * @param &lt;T&gt; the gene type of the chromosome
+	 * @param alleles the valid alleles used for this permutation arrays.
+	 * @return a new chromosome with the given alleles
+	 */
+	public static &lt;T&gt; PermutationChromosome&lt;T&gt; of(final ISeq&lt;? extends T&gt; alleles) {
+<span class="fc" id="L138">		final ISeq&lt;EnumGene&lt;T&gt;&gt; genes = IntStream.range(0, alleles.length())</span>
+<span class="fc" id="L139">			.mapToObj(index -&gt; new EnumGene&lt;&gt;(index, alleles))</span>
+<span class="fc" id="L140">			.collect(toMSeq())</span>
+<span class="fc" id="L141">			.shuffle(RandomRegistry.getRandom())</span>
+<span class="fc" id="L142">			.toISeq();</span>
+
+<span class="fc" id="L144">		final PermutationChromosome&lt;T&gt; chromosome =</span>
+			new PermutationChromosome&lt;&gt;(genes);
+<span class="fc" id="L146">		chromosome._validAlleles = reflect.cast(alleles);</span>
+<span class="fc" id="L147">		chromosome._valid = true;</span>
+
+<span class="fc" id="L149">		return chromosome;</span>
+	}
+
+	/**
+	 * Create a new, random chromosome with the given valid alleles.
+	 *
+	 * @since 2.0
+	 * @param &lt;T&gt; the gene type of the chromosome
+	 * @param alleles the valid alleles used for this permutation arrays.
+	 * @return a new chromosome with the given alleles
+	 * @throws IllegalArgumentException if the given allele array is empty
+	 * @throws NullPointerException if one of the alleles is {@code null}
+	 */
+	@SafeVarargs
+	public static &lt;T&gt; PermutationChromosome&lt;T&gt; of(final T... alleles) {
+<span class="fc" id="L164">		return of(ISeq.of(alleles));</span>
+	}
+
+	/**
+	 * Create a integer permutation chromosome with the given length.
+	 *
+	 * @param length the chromosome length.
+	 * @return a integer permutation chromosome with the given length.
+	 * @throws IllegalArgumentException if the given length is smaller than one.
+	 */
+	public static PermutationChromosome&lt;Integer&gt; ofInteger(final int length) {
+<span class="fc" id="L175">		return ofInteger(0, require.positive(length));</span>
+	}
+
+	/**
+	 * Create a integer permutation chromosome with the given length.
+	 *
+	 * @since 2.0
+	 * @param start the start of the integer range (inclusively) of the returned
+	 *        chromosome.
+	 * @param end the end of the integer range (exclusively) of the returned
+	 *        chromosome.
+	 * @return a integer permutation chromosome with the given integer range
+	 *         values.
+	 * @throws java.lang.IllegalArgumentException if {@code end &lt;= start}
+	 */
+	public static PermutationChromosome&lt;Integer&gt;
+	ofInteger(final int start, final int end) {
+<span class="pc bpc" id="L192" title="1 of 2 branches missed.">		if (end &lt;= start) {</span>
+<span class="nc" id="L193">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L194">				&quot;end &lt;= start: %d &lt;= %d&quot;, end, start</span>
+			));
+		}
+
+<span class="fc" id="L198">		final IntRef index = new IntRef(start);</span>
+<span class="fc" id="L199">		final ISeq&lt;Integer&gt; alleles = MSeq.&lt;Integer&gt;ofLength(end - start)</span>
+<span class="fc" id="L200">			.fill(() -&gt; index.value++)</span>
+<span class="fc" id="L201">			.toISeq();</span>
+
+<span class="fc" id="L203">		return of(alleles);</span>
+	}
+
+	/* *************************************************************************
+	 *  Java object serialization
+	 * ************************************************************************/
+
+	private void writeObject(final ObjectOutputStream out)
+		throws IOException
+	{
+<span class="fc" id="L213">		out.defaultWriteObject();</span>
+
+<span class="fc" id="L215">		out.writeObject(_validAlleles);</span>
+<span class="fc bfc" id="L216" title="All 2 branches covered.">		for (EnumGene&lt;?&gt; gene : _genes) {</span>
+<span class="fc" id="L217">			out.writeInt(gene.getAlleleIndex());</span>
+<span class="fc" id="L218">		}</span>
+<span class="fc" id="L219">	}</span>
+
+	@SuppressWarnings(&quot;unchecked&quot;)
+	private void readObject(final ObjectInputStream in)
+		throws IOException, ClassNotFoundException
+	{
+<span class="fc" id="L225">		in.defaultReadObject();</span>
+
+<span class="fc" id="L227">		_validAlleles = (ISeq&lt;T&gt;)in.readObject();</span>
+
+<span class="fc" id="L229">		final MSeq&lt;EnumGene&lt;T&gt;&gt; genes = MSeq.ofLength(_validAlleles.length());</span>
+<span class="fc bfc" id="L230" title="All 2 branches covered.">		for (int i = 0; i &lt; _validAlleles.length(); ++i) {</span>
+<span class="fc" id="L231">			genes.set(i, new EnumGene&lt;&gt;(in.readInt(), _validAlleles));</span>
+		}
+
+<span class="fc" id="L234">		_genes = genes.toISeq();</span>
+<span class="fc" id="L235">	}</span>
+
+	/* *************************************************************************
+	 *  JAXB object serialization
+	 * ************************************************************************/
+
+	@XmlRootElement(name = &quot;permutation-chromosome&quot;)
+	@XmlType(name = &quot;org.jenetics.PermutationChromosome&quot;)
+	@XmlAccessorType(XmlAccessType.FIELD)
+	@SuppressWarnings({&quot;unchecked&quot;, &quot;rawtypes&quot;})
+<span class="fc" id="L245">	static final class Model {</span>
+
+		@XmlAttribute
+		public int length;
+
+		@XmlElementWrapper(name = &quot;valid-alleles&quot;)
+		@XmlElement(name = &quot;allele&quot;)
+		public List&lt;Object&gt; alleles;
+
+		@XmlList
+		@XmlElement(name = &quot;order&quot;)
+		public List&lt;Integer&gt; order;
+
+<span class="fc" id="L258">		public static final class Adapter</span>
+			extends XmlAdapter&lt;Model, PermutationChromosome&gt; {
+			@Override
+			public Model marshal(final PermutationChromosome pc)
+				throws Exception {
+<span class="nc" id="L263">				final Model model = new Model();</span>
+<span class="nc" id="L264">				model.length = pc.length();</span>
+<span class="nc" id="L265">				model.alleles = pc.getValidAlleles()</span>
+<span class="nc" id="L266">					.map(jaxb.Marshaller(pc.getValidAlleles().get(0)))</span>
+<span class="nc" id="L267">					.asList();</span>
+<span class="nc" id="L268">				model.order = ((Seq&lt;EnumGene&lt;?&gt;&gt;)pc.toSeq())</span>
+<span class="nc" id="L269">					.map(EnumGene::getAlleleIndex)</span>
+<span class="nc" id="L270">					.asList();</span>
+
+<span class="nc" id="L272">				return model;</span>
+			}
+
+			@Override
+			public PermutationChromosome unmarshal(final Model model)
+				throws Exception {
+<span class="fc" id="L278">				final ISeq alleles = ISeq.of(model.alleles)</span>
+<span class="fc" id="L279">					.map(jaxb.Unmarshaller(model.alleles.get(0)));</span>
+
+<span class="fc" id="L281">				return new PermutationChromosome(</span>
+<span class="fc" id="L282">					ISeq.of(model.order).map(Gene(alleles))</span>
+				);
+			}
+		}
+
+		private static Function&lt;Integer, EnumGene&lt;Object&gt;&gt;
+		Gene(final ISeq&lt;Object&gt; alleles) {
+<span class="fc" id="L289">			return value -&gt; new EnumGene&lt;&gt;(value, alleles);</span>
+		}
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

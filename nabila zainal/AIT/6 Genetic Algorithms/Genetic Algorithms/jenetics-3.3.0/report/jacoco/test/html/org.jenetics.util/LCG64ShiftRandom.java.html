@@ -1,0 +1,776 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>LCG64ShiftRandom.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.util</a> &gt; <span class="el_source">LCG64ShiftRandom.java</span></div><h1>LCG64ShiftRandom.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.util;
+
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static org.jenetics.internal.util.Equality.eq;
+
+import java.io.Serializable;
+
+import org.jenetics.internal.math.arithmetic;
+import org.jenetics.internal.math.random;
+import org.jenetics.internal.util.Equality;
+import org.jenetics.internal.util.Hash;
+
+/**
+ * This class implements a linear congruential PRNG with additional bit-shift
+ * transition. The base recursion
+ * &lt;p&gt;
+ * &lt;img
+ *     alt=&quot;r_{i+1} = (a\cdot r_i + b) \mod 2^{64}&quot;
+ *     src=&quot;doc-files/lcg-recursion.gif&quot;
+ * &gt;
+ * &lt;/p&gt;
+ * is followed by a non-linear transformation
+ * &lt;p&gt;
+ * &lt;img
+ *     alt=&quot;\begin{eqnarray*}
+ *           t &amp;=&amp; r_i                \\
+ *           t &amp;=&amp; t \oplus (t &gt;&gt; 17) \\
+ *           t &amp;=&amp; t \oplus (t &lt;&lt; 31) \\
+ *           t &amp;=&amp; t \oplus (t &gt;&gt; 8)
+ *         \end{eqnarray*}&quot;
+ *     src=&quot;doc-files/lcg-non-linear.gif&quot;
+ * &gt;
+ * &lt;/p&gt;
+ * which destroys the lattice structure introduced by the recursion. The period
+ * of this PRNG is 2&lt;sup&gt;64&lt;/sup&gt;, {@code iff} &lt;i&gt;b&lt;/i&gt; is odd and &lt;i&gt;a&lt;/i&gt;
+ * {@code mod} 4 = 1.
+ * &lt;p&gt;
+ *
+ * &lt;em&gt;
+ * This is an re-implementation of the
+ * &lt;a href=&quot;https://github.com/rabauke/trng4/blob/master/src/lcg64_shift.hpp&quot;&gt;
+ * trng::lcg64_shift&lt;/a&gt; PRNG class of the
+ * &lt;a href=&quot;http://numbercrunch.de/trng/&quot;&gt;TRNG&lt;/a&gt; library created by Heiko
+ * Bauke.&lt;/em&gt;
+ *
+ * &lt;p&gt;
+ * &lt;strong&gt;Not that the base implementation of the {@code LCG64ShiftRandom}
+ * class is not thread-safe.&lt;/strong&gt; If multiple threads requests random
+ * numbers from this class, it &lt;i&gt;must&lt;/i&gt; be synchronized externally.
+ * Alternatively you can use the thread-safe implementations
+ * {@link LCG64ShiftRandom.ThreadSafe} or {@link LCG64ShiftRandom.ThreadLocal}.
+ *
+ * @see &lt;a href=&quot;http://numbercrunch.de/trng/&quot;&gt;TRNG&lt;/a&gt;
+ * @see RandomRegistry
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.1
+ * @version 2.0
+ */
+public class LCG64ShiftRandom extends Random64 {
+
+	private static final long serialVersionUID = 1L;
+
+	/**
+	 * This class represents a &lt;i&gt;thread local&lt;/i&gt; implementation of the
+	 * {@code LCG64ShiftRandom} PRNG.
+	 *
+	 * It's recommended to initialize the {@code RandomRegistry} the following
+	 * way:
+	 *
+	 * &lt;pre&gt;{@code
+	 * // Register the PRNG with the default parameters.
+	 * RandomRegistry.setRandom(new LCG64ShiftRandom.ThreadLocal());
+	 *
+	 * // Register the PRNG with the {@code LECUYER3} parameters.
+	 * RandomRegistry.setRandom(new LCG64ShiftRandom.ThreadLocal(
+	 *     LCG64ShiftRandom.LECUYER3
+	 * ));
+	 * }&lt;/pre&gt;
+	 *
+	 * Be aware, that calls of the {@code setSeed(long)} method will throw an
+	 * {@code UnsupportedOperationException} for &lt;i&gt;thread local&lt;/i&gt; instances.
+	 * &lt;pre&gt;{@code
+	 * RandomRegistry.setRandom(new LCG64ShiftRandom.ThreadLocal());
+	 *
+	 * // Will throw 'UnsupportedOperationException'.
+	 * RandomRegistry.getRandom().setSeed(1234);
+	 * }&lt;/pre&gt;
+	 *
+	 * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+	 * @since 1.1
+	 * @version 3.0
+	 */
+	public static final class ThreadLocal
+		extends java.lang.ThreadLocal&lt;LCG64ShiftRandom&gt;
+	{
+		private static final long STEP_BASE = 1L &lt;&lt; 56;
+
+<span class="fc" id="L119">		private int _block = 0;</span>
+<span class="fc" id="L120">		private long _seed = random.seed();</span>
+
+		private final Param _param;
+
+		/**
+		 * Create a new &lt;i&gt;thread local&lt;/i&gt; instance of the
+		 * {@code LCG64ShiftRandom} PRNG with the {@code DEFAULT} parameters.
+		 */
+		public ThreadLocal() {
+<span class="fc" id="L129">			this(Param.DEFAULT);</span>
+<span class="fc" id="L130">		}</span>
+
+		/**
+		 * Create a new &lt;i&gt;thread local&lt;/i&gt; instance of the
+		 * {@code LCG64ShiftRandom} PRNG with the given parameters.
+		 *
+		 * @param param the LC parameters.
+		 * @throws NullPointerException if the given parameters are null.
+		 */
+<span class="fc" id="L139">		public ThreadLocal(final Param param) {</span>
+<span class="fc" id="L140">			_param = requireNonNull(param, &quot;PRNG param must not be null.&quot;);</span>
+<span class="fc" id="L141">		}</span>
+
+		/**
+		 * Create a new PRNG using &lt;i&gt;block splitting&lt;/i&gt; for guaranteeing well
+		 * distributed PRN for every thread.
+		 *
+		 * &lt;p&gt;
+		 * &lt;strong&gt;Tina’s Random Number Generator Library&lt;/strong&gt;
+		 * &lt;br&gt;
+		 * &lt;em&gt;Chapter 2. Pseudo-random numbers for parallel Monte Carlo
+		 *     simulations, Page 7&lt;/em&gt;
+		 * &lt;br&gt;
+		 * &lt;small&gt;Heiko Bauke&lt;/small&gt;
+		 * &lt;br&gt;
+		 * [&lt;a href=&quot;http://numbercrunch.de/trng/trng.pdf&quot;&gt;
+		 *  http://numbercrunch.de/trng/trng.pdf
+		 *  &lt;/a&gt;].
+		 */
+		@Override
+		protected synchronized LCG64ShiftRandom initialValue() {
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">			if (_block &gt; 127) {</span>
+<span class="nc" id="L162">				_block = 0;</span>
+<span class="nc" id="L163">				_seed = random.seed();</span>
+			}
+
+<span class="fc" id="L166">			final LCG64ShiftRandom random = new TLLCG64ShiftRandom(_seed, _param);</span>
+<span class="fc" id="L167">			random.jump(_block++*STEP_BASE);</span>
+<span class="fc" id="L168">			return random;</span>
+		}
+
+	}
+
+	private static final class TLLCG64ShiftRandom extends LCG64ShiftRandom {
+		private static final long serialVersionUID = 1L;
+
+<span class="fc" id="L176">		private final Boolean _sentry = Boolean.TRUE;</span>
+
+		private TLLCG64ShiftRandom(final long seed, final Param param) {
+<span class="fc" id="L179">			super(param, seed);</span>
+<span class="fc" id="L180">		}</span>
+
+		@Override
+		public void setSeed(final long seed) {
+<span class="pc bpc" id="L184" title="1 of 2 branches missed.">			if (_sentry != null) {</span>
+<span class="nc" id="L185">				throw new UnsupportedOperationException(</span>
+					&quot;The 'setSeed(long)' method is not supported &quot; +
+					&quot;for thread local instances.&quot;
+				);
+			}
+<span class="fc" id="L190">		}</span>
+
+	}
+
+	/**
+	 * This is a &lt;i&gt;thread safe&lt;/i&gt; variation of the this PRNG&amp;mdash;by
+	 * synchronizing the random number generation.
+	 *
+	 * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+	 * @since 1.1
+	 * @version 3.0
+	 */
+	public static final class ThreadSafe extends LCG64ShiftRandom {
+		private static final long serialVersionUID = 1L;
+
+		/**
+		 * Create a new PRNG instance with the given parameter and seed.
+		 *
+		 * @param seed the seed of the PRNG.
+		 * @param param the parameter of the PRNG.
+		 * @throws NullPointerException if the given {@code param} is null.
+		 *
+		 * @deprecated Use {@code LCG64ShiftRandom.ThreadSafe(Param, long)}
+		 *             instead.
+		 */
+		@Deprecated
+		public ThreadSafe(final long seed, final Param param) {
+<span class="nc" id="L217">			super(param, seed);</span>
+<span class="nc" id="L218">		}</span>
+
+		/**
+		 * Create a new PRNG instance with the given parameter and seed.
+		 *
+		 * @param seed the seed of the PRNG.
+		 * @param param the parameter of the PRNG.
+		 * @throws NullPointerException if the given {@code param} is null.
+		 */
+		public ThreadSafe(final Param param, final long seed) {
+<span class="fc" id="L228">			super(param, seed);</span>
+<span class="fc" id="L229">		}</span>
+
+		/**
+		 * Create a new PRNG instance with {@link Param#DEFAULT} parameter and
+		 * the given seed.
+		 *
+		 * @param seed the seed of the PRNG
+		 */
+		public ThreadSafe(final long seed) {
+<span class="fc" id="L238">			this(Param.DEFAULT, seed);</span>
+<span class="fc" id="L239">		}</span>
+
+		/**
+		 * Create a new PRNG instance with the given parameter and a safe
+		 * default seed.
+		 *
+		 * @param param the PRNG parameter.
+		 * @throws NullPointerException if the given {@code param} is null.
+		 */
+		public ThreadSafe(final Param param) {
+<span class="nc" id="L249">			this(param, random.seed());</span>
+<span class="nc" id="L250">		}</span>
+
+		/**
+		 * Create a new PRNG instance with {@link Param#DEFAULT} parameter and
+		 * a safe seed.
+		 */
+		public ThreadSafe() {
+<span class="nc" id="L257">			this(Param.DEFAULT, random.seed());</span>
+<span class="nc" id="L258">		}</span>
+
+		@Override
+		public synchronized void setSeed(final long seed) {
+<span class="fc" id="L262">			super.setSeed(seed);</span>
+<span class="fc" id="L263">		}</span>
+
+		@Override
+		public synchronized long nextLong() {
+<span class="fc" id="L267">			return super.nextLong();</span>
+		}
+
+		@Override
+		public synchronized void split(final int p, final int s) {
+<span class="nc" id="L272">			super.split(p, s);</span>
+<span class="nc" id="L273">		}</span>
+
+		@Override
+		public synchronized void jump2(final int s) {
+<span class="nc" id="L277">			super.jump2(s);</span>
+<span class="nc" id="L278">		}</span>
+
+		@Override
+		public synchronized void jump(final long step) {
+<span class="nc" id="L282">			super.jump(step);</span>
+<span class="nc" id="L283">		}</span>
+
+	}
+
+	/**
+	 * Parameter class for the {@code LCG64ShiftRandom} generator, for the
+	 * parameters &lt;i&gt;a&lt;/i&gt; and &lt;i&gt;b&lt;/i&gt; of the LC recursion
+	 * &lt;i&gt;r&lt;sub&gt;i+1&lt;/sub&gt; = a · r&lt;sub&gt;i&lt;/sub&gt; + b&lt;/i&gt; mod &lt;i&gt;2&lt;sup&gt;64&lt;/sup&gt;&lt;/i&gt;.
+	 *
+	 * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+	 * @since 1.1
+	 * @version 2.0
+	 */
+	public static final class Param implements Serializable {
+
+		private static final long serialVersionUID = 1L;
+
+		/**
+		 * The default PRNG parameters: a = 0xFBD19FBBC5C07FF5L; b = 1
+		 */
+<span class="fc" id="L303">		public static final Param DEFAULT = Param.of(0xFBD19FBBC5C07FF5L, 1L);</span>
+
+		/**
+		 * LEcuyer 1 parameters: a = 0x27BB2EE687B0B0FDL; b = 1
+		 */
+<span class="fc" id="L308">		public static final Param LECUYER1 = Param.of(0x27BB2EE687B0B0FDL, 1L);</span>
+
+		/**
+		 * LEcuyer 2 parameters: a = 0x2C6FE96EE78B6955L; b = 1
+		 */
+<span class="fc" id="L313">		public static final Param LECUYER2 = Param.of(0x2C6FE96EE78B6955L, 1L);</span>
+
+		/**
+		 * LEcuyer 3 parameters: a = 0x369DEA0F31A53F85L; b = 1
+		 */
+<span class="fc" id="L318">		public static final Param LECUYER3 = Param.of(0x369DEA0F31A53F85L, 1L);</span>
+
+
+		/**
+		 * The parameter &lt;i&gt;a&lt;/i&gt; of the LC recursion.
+		 */
+		public final long a;
+
+		/**
+		 * The parameter &lt;i&gt;b&lt;/i&gt; of the LC recursion.
+		 */
+		public final long b;
+
+		/**
+		 * Create a new parameter object.
+		 *
+		 * @param a the parameter &lt;i&gt;a&lt;/i&gt; of the LC recursion.
+		 * @param b the parameter &lt;i&gt;b&lt;/i&gt; of the LC recursion.
+		 */
+<span class="fc" id="L337">		private Param(final long a, final long b) {</span>
+<span class="fc" id="L338">			this.a = a;</span>
+<span class="fc" id="L339">			this.b = b;</span>
+<span class="fc" id="L340">		}</span>
+
+		public static Param of(final long a, final long b) {
+<span class="fc" id="L343">			return new Param(a, b);</span>
+		}
+
+		@Override
+		public int hashCode() {
+<span class="fc" id="L348">			return 31*(int)(a^(a &gt;&gt;&gt; 32)) + 31*(int)(b^(b &gt;&gt;&gt; 32));</span>
+		}
+
+		@Override
+		public boolean equals(final Object obj) {
+<span class="pc bpc" id="L353" title="3 of 6 branches missed.">			return obj instanceof Param &amp;&amp;</span>
+				((Param)obj).a == a &amp;&amp;
+				((Param)obj).b == b;
+		}
+
+		@Override
+		public String toString() {
+<span class="fc" id="L360">			return format(&quot;%s[a=%d, b=%d]&quot;, getClass().getName(), a, b);</span>
+		}
+	}
+
+	/**
+	 * Represents the state of this random engine
+	 */
+	private final static class State implements Serializable {
+		private static final long serialVersionUID = 1L;
+
+		long _r;
+
+<span class="fc" id="L372">		State(final long seed) {</span>
+<span class="fc" id="L373">			setSeed(seed);</span>
+<span class="fc" id="L374">		}</span>
+
+		void setSeed(final long seed) {
+<span class="fc" id="L377">			_r = seed;</span>
+<span class="fc" id="L378">		}</span>
+
+		@Override
+		public int hashCode() {
+<span class="fc" id="L382">			return Hash.of(getClass()).and(_r).value();</span>
+		}
+
+		@Override
+		public boolean equals(final Object obj) {
+<span class="pc bpc" id="L387" title="1 of 4 branches missed.">			return obj instanceof State &amp;&amp; ((State)obj)._r == _r;</span>
+		}
+
+		@Override
+		public String toString() {
+<span class="fc" id="L392">			return format(&quot;State[%d]&quot;, _r);</span>
+		}
+	}
+
+
+	private Param _param;
+	private final State _state;
+
+	/**
+	 * Create a new PRNG instance with the given parameter and seed.
+	 *
+	 * @param param the parameter of the PRNG.
+	 * @param seed the seed of the PRNG.
+	 * @throws NullPointerException if the given {@code param} is null.
+	 */
+<span class="fc" id="L407">	public LCG64ShiftRandom(final Param param, final long seed) {</span>
+<span class="fc" id="L408">		_param = requireNonNull(param, &quot;PRNG param must not be null.&quot;);</span>
+<span class="fc" id="L409">		_state = new State(seed);</span>
+<span class="fc" id="L410">	}</span>
+
+	/**
+	 * Create a new PRNG instance with the given parameter and a safe seed
+	 *
+	 * @param param the PRNG parameter.
+	 * @throws NullPointerException if the given {@code param} is null.
+	 */
+	public LCG64ShiftRandom(final Param param) {
+<span class="nc" id="L419">		this(param, random.seed());</span>
+<span class="nc" id="L420">	}</span>
+
+	/**
+	 * Create a new PRNG instance with {@link Param#DEFAULT} parameter and the
+	 * given seed.
+	 *
+	 * @param seed the seed of the PRNG
+	 */
+	public LCG64ShiftRandom(final long seed) {
+<span class="fc" id="L429">		this(Param.DEFAULT, seed);</span>
+<span class="fc" id="L430">	}</span>
+
+	/**
+	 * Create a new PRNG instance with {@link Param#DEFAULT} parameter and safe
+	 * seed.
+	 */
+	public LCG64ShiftRandom() {
+<span class="fc" id="L437">		this(Param.DEFAULT, random.seed());</span>
+<span class="fc" id="L438">	}</span>
+
+	@Override
+	public long nextLong() {
+<span class="fc" id="L442">		step();</span>
+
+<span class="fc" id="L444">		long t = _state._r;</span>
+<span class="fc" id="L445">		t ^= t &gt;&gt;&gt; 17;</span>
+<span class="fc" id="L446">		t ^= t &lt;&lt; 31;</span>
+<span class="fc" id="L447">		t ^= t &gt;&gt;&gt; 8;</span>
+<span class="fc" id="L448">		return t;</span>
+	}
+
+	private void step() {
+<span class="fc" id="L452">		_state._r = _param.a*_state._r + _param.b;</span>
+<span class="fc" id="L453">	}</span>
+
+	@Override
+	public void setSeed(final long seed) {
+<span class="fc bfc" id="L457" title="All 2 branches covered.">		if (_state != null) _state.setSeed(seed);</span>
+<span class="fc" id="L458">	}</span>
+
+	/**
+	 * Changes the internal state of the PRNG in a way that future calls to
+	 * {@link #nextLong()} will generated the s&lt;sup&gt;th&lt;/sup&gt; sub-stream of
+	 * p&lt;sup&gt;th&lt;/sup&gt; sub-streams. &lt;i&gt;s&lt;/i&gt; must be within the range of
+	 * {@code [0, p-1)}. This method is mainly used for &lt;i&gt;parallelization&lt;/i&gt;
+	 * via &lt;i&gt;leap-frogging&lt;/i&gt;.
+	 *
+	 * @param p the overall number of sub-streams
+	 * @param s the s&lt;sup&gt;th&lt;/sup&gt; sub-stream
+	 * @throws IllegalArgumentException if {@code p &lt; 1 || s &gt;= p}.
+	 */
+	public void split(final int p, final int s) {
+<span class="nc bnc" id="L472" title="All 2 branches missed.">		if (p &lt; 1) {</span>
+<span class="nc" id="L473">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L474">				&quot;p must be &gt;= 1 but was %d.&quot;, p</span>
+			));
+		}
+<span class="nc bnc" id="L477" title="All 2 branches missed.">		if (s &gt;= p) {</span>
+<span class="nc" id="L478">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L479">				&quot;s must be &lt; %d but was %d.&quot;, p, s</span>
+			));
+		}
+
+<span class="nc bnc" id="L483" title="All 2 branches missed.">		if (p &gt; 1) {</span>
+<span class="nc" id="L484">			jump(s + 1);</span>
+<span class="nc" id="L485">			final long b = _param.b*f(p, _param.a);</span>
+<span class="nc" id="L486">			final long a = arithmetic.pow(_param.a, p);</span>
+<span class="nc" id="L487">			_param = Param.of(a, b);</span>
+<span class="nc" id="L488">			backward();</span>
+		}
+<span class="nc" id="L490">	}</span>
+
+	/**
+	 * Changes the internal state of the PRNG in such a way that the engine
+	 * &lt;i&gt;jumps&lt;/i&gt; 2&lt;sup&gt;s&lt;/sup&gt; steps ahead.
+	 *
+	 * @param s the 2&lt;sup&gt;s&lt;/sup&gt; steps to jump ahead.
+	 * @throws IllegalArgumentException if {@code s &lt; 0}.
+	 */
+	public void jump2(final int s) {
+<span class="pc bpc" id="L500" title="1 of 2 branches missed.">		if (s &lt; 0) {</span>
+<span class="nc" id="L501">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L502">				&quot;s must be positive but was %d.&quot;, s</span>
+			));
+		}
+
+<span class="pc bpc" id="L506" title="1 of 2 branches missed.">		if (s &gt;= Long.SIZE) {</span>
+<span class="nc" id="L507">			throw new IllegalArgumentException(format(</span>
+				&quot;The 'jump2' size must be smaller than %d but was %d.&quot;,
+<span class="nc" id="L509">				Long.SIZE, s</span>
+			));
+		}
+
+<span class="fc" id="L513">		_state._r = _state._r*arithmetic.pow(_param.a, 1L &lt;&lt; s) +</span>
+<span class="fc" id="L514">					f(1L &lt;&lt; s, _param.a)*_param.b;</span>
+<span class="fc" id="L515">	}</span>
+
+	/**
+	 * Changes the internal state of the PRNG in such a way that the engine
+	 * &lt;i&gt;jumps&lt;/i&gt; s steps ahead.
+	 *
+	 * @param step the steps to jump ahead.
+	 * @throws IllegalArgumentException if {@code s &lt; 0}.
+	 */
+	public void jump(final long step) {
+<span class="pc bpc" id="L525" title="1 of 2 branches missed.">		if (step &lt; 0) {</span>
+<span class="nc" id="L526">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L527">				&quot;step must be positive but was %d&quot;, step</span>
+			));
+		}
+
+<span class="fc bfc" id="L531" title="All 2 branches covered.">		if (step &lt; 16) {</span>
+<span class="pc bpc" id="L532" title="1 of 2 branches missed.">			for (int i = 0; i &lt; step; ++i) {</span>
+<span class="nc" id="L533">				step();</span>
+			}
+		} else {
+<span class="fc" id="L536">			long s = step;</span>
+<span class="fc" id="L537">			int i = 0;</span>
+<span class="fc bfc" id="L538" title="All 2 branches covered.">			while (s &gt; 0) {</span>
+<span class="fc bfc" id="L539" title="All 2 branches covered.">				if (s%2 == 1) {</span>
+<span class="fc" id="L540">					jump2(i);</span>
+				}
+<span class="fc" id="L542">				++i;</span>
+<span class="fc" id="L543">				s &gt;&gt;= 1;</span>
+			}
+		}
+<span class="fc" id="L546">	}</span>
+
+	private void backward() {
+<span class="nc bnc" id="L549" title="All 2 branches missed.">		for (int i = 0; i &lt; Long.SIZE; ++i) {</span>
+<span class="nc" id="L550">			jump2(i);</span>
+		}
+<span class="nc" id="L552">	}</span>
+
+	public Param getParam() {
+<span class="nc" id="L555">		return _param;</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L560">		return Hash.of(getClass())</span>
+<span class="fc" id="L561">			.and(_param)</span>
+<span class="fc" id="L562">			.and(_state).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc" id="L567">		return Equality.of(this, obj).test(random -&gt;</span>
+			eq(_param, random._param) &amp;&amp;
+			eq(_state, random._state)
+		);
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L575">		return format(&quot;%s[%s, %s]&quot;, getClass().getSimpleName(), _param, _state);</span>
+	}
+
+
+
+	/* *************************************************************************
+	 * Some static helper methods
+	 ***************************************************************************/
+
+	/**
+	 * Compute prod(1+a^(2^i), i=0..l-1).
+	 */
+	private static long g(final int l, final long a) {
+<span class="fc" id="L588">		long p = a;</span>
+<span class="fc" id="L589">		long res = 1;</span>
+<span class="fc bfc" id="L590" title="All 2 branches covered.">		for (int i = 0; i &lt; l; ++i) {</span>
+<span class="fc" id="L591">			res *= 1 + p;</span>
+<span class="fc" id="L592">			p *= p;</span>
+		}
+
+<span class="fc" id="L595">		return res;</span>
+	}
+
+	/**
+	 * Compute sum(a^i, i=0..s-1).
+	 */
+	private static long f(final long s, final long a) {
+<span class="fc" id="L602">		long y = 0;</span>
+
+<span class="pc bpc" id="L604" title="1 of 2 branches missed.">		if (s != 0) {</span>
+<span class="fc" id="L605">			long e = log2Floor(s);</span>
+<span class="fc" id="L606">			long p = a;</span>
+
+<span class="fc bfc" id="L608" title="All 2 branches covered.">			for (int l = 0; l &lt;= e; ++l) {</span>
+<span class="fc bfc" id="L609" title="All 2 branches covered.">				if (((1L &lt;&lt; l) &amp; s) != 0) {</span>
+<span class="fc" id="L610">					y = g(l, a) + p*y;</span>
+				}
+<span class="fc" id="L612">				p *= p;</span>
+			}
+		}
+
+<span class="fc" id="L616">		return y;</span>
+	}
+
+	private static long log2Floor(final long s) {
+<span class="fc" id="L620">		long x = s;</span>
+<span class="fc" id="L621">		long y = 0;</span>
+
+<span class="fc bfc" id="L623" title="All 2 branches covered.">		while (x != 0) {</span>
+<span class="fc" id="L624">			x &gt;&gt;&gt;= 1;</span>
+<span class="fc" id="L625">			++y;</span>
+		}
+
+<span class="fc" id="L628">		return y - 1;</span>
+	}
+
+}
+
+/*
+#=============================================================================#
+# Testing: org.jenetics.util.LCG64ShiftRandom (2015-07-12 01:22)              #
+#=============================================================================#
+#=============================================================================#
+# Linux 3.19.0-22-generic (amd64)                                             #
+# java version &quot;1.8.0_45&quot;                                                     #
+# Java(TM) SE Runtime Environment (build 1.8.0_45-b14)                        #
+# Java HotSpot(TM) 64-Bit Server VM (build 25.45-b02)                         #
+#=============================================================================#
+#=============================================================================#
+#            dieharder version 3.31.1 Copyright 2003 Robert G. Brown          #
+#=============================================================================#
+   rng_name    |rands/second|   Seed   |
+stdin_input_raw|  3.26e+07  |2198533946|
+#=============================================================================#
+        test_name   |ntup| tsamples |psamples|  p-value |Assessment
+#=============================================================================#
+   diehard_birthdays|   0|       100|     100|0.96061667|  PASSED
+      diehard_operm5|   0|   1000000|     100|0.49388035|  PASSED
+  diehard_rank_32x32|   0|     40000|     100|0.76944223|  PASSED
+    diehard_rank_6x8|   0|    100000|     100|0.81999775|  PASSED
+   diehard_bitstream|   0|   2097152|     100|0.66213596|  PASSED
+        diehard_opso|   0|   2097152|     100|0.35244278|  PASSED
+        diehard_oqso|   0|   2097152|     100|0.30642433|  PASSED
+         diehard_dna|   0|   2097152|     100|0.31111322|  PASSED
+diehard_count_1s_str|   0|    256000|     100|0.29900596|  PASSED
+diehard_count_1s_byt|   0|    256000|     100|0.84049939|  PASSED
+ diehard_parking_lot|   0|     12000|     100|0.25249632|  PASSED
+    diehard_2dsphere|   2|      8000|     100|0.89898431|  PASSED
+    diehard_3dsphere|   3|      4000|     100|0.87592069|  PASSED
+     diehard_squeeze|   0|    100000|     100|0.46151457|  PASSED
+        diehard_sums|   0|       100|     100|0.09988415|  PASSED
+        diehard_runs|   0|    100000|     100|0.71496719|  PASSED
+        diehard_runs|   0|    100000|     100|0.84035529|  PASSED
+       diehard_craps|   0|    200000|     100|0.39228628|  PASSED
+       diehard_craps|   0|    200000|     100|0.43227446|  PASSED
+ marsaglia_tsang_gcd|   0|  10000000|     100|0.92226509|  PASSED
+ marsaglia_tsang_gcd|   0|  10000000|     100|0.14768717|  PASSED
+         sts_monobit|   1|    100000|     100|0.99459043|  PASSED
+            sts_runs|   2|    100000|     100|0.14017900|  PASSED
+          sts_serial|   1|    100000|     100|0.93191375|  PASSED
+          sts_serial|   2|    100000|     100|0.78130569|  PASSED
+          sts_serial|   3|    100000|     100|0.48954386|  PASSED
+          sts_serial|   3|    100000|     100|0.20669186|  PASSED
+          sts_serial|   4|    100000|     100|0.51752304|  PASSED
+          sts_serial|   4|    100000|     100|0.81217070|  PASSED
+          sts_serial|   5|    100000|     100|0.61151292|  PASSED
+          sts_serial|   5|    100000|     100|0.43893995|  PASSED
+          sts_serial|   6|    100000|     100|0.70098249|  PASSED
+          sts_serial|   6|    100000|     100|0.88111033|  PASSED
+          sts_serial|   7|    100000|     100|0.08860893|  PASSED
+          sts_serial|   7|    100000|     100|0.10888449|  PASSED
+          sts_serial|   8|    100000|     100|0.48682957|  PASSED
+          sts_serial|   8|    100000|     100|0.79253724|  PASSED
+          sts_serial|   9|    100000|     100|0.57005454|  PASSED
+          sts_serial|   9|    100000|     100|0.57300065|  PASSED
+          sts_serial|  10|    100000|     100|0.60555174|  PASSED
+          sts_serial|  10|    100000|     100|0.26010863|  PASSED
+          sts_serial|  11|    100000|     100|0.23181253|  PASSED
+          sts_serial|  11|    100000|     100|0.55889710|  PASSED
+          sts_serial|  12|    100000|     100|0.50349009|  PASSED
+          sts_serial|  12|    100000|     100|0.67703032|  PASSED
+          sts_serial|  13|    100000|     100|0.09716434|  PASSED
+          sts_serial|  13|    100000|     100|0.01651733|  PASSED
+          sts_serial|  14|    100000|     100|0.58227903|  PASSED
+          sts_serial|  14|    100000|     100|0.49816453|  PASSED
+          sts_serial|  15|    100000|     100|0.35547243|  PASSED
+          sts_serial|  15|    100000|     100|0.77801465|  PASSED
+          sts_serial|  16|    100000|     100|0.55611062|  PASSED
+          sts_serial|  16|    100000|     100|0.45764285|  PASSED
+         rgb_bitdist|   1|    100000|     100|0.74657121|  PASSED
+         rgb_bitdist|   2|    100000|     100|0.95265707|  PASSED
+         rgb_bitdist|   3|    100000|     100|0.71143353|  PASSED
+         rgb_bitdist|   4|    100000|     100|0.99995544|   WEAK
+         rgb_bitdist|   5|    100000|     100|0.99616318|   WEAK
+         rgb_bitdist|   6|    100000|     100|0.66956720|  PASSED
+         rgb_bitdist|   7|    100000|     100|0.95378286|  PASSED
+         rgb_bitdist|   8|    100000|     100|0.46355875|  PASSED
+         rgb_bitdist|   9|    100000|     100|0.21831657|  PASSED
+         rgb_bitdist|  10|    100000|     100|0.97851877|  PASSED
+         rgb_bitdist|  11|    100000|     100|0.35608637|  PASSED
+         rgb_bitdist|  12|    100000|     100|0.11482554|  PASSED
+rgb_minimum_distance|   2|     10000|    1000|0.67569619|  PASSED
+rgb_minimum_distance|   3|     10000|    1000|0.40169012|  PASSED
+rgb_minimum_distance|   4|     10000|    1000|0.68466980|  PASSED
+rgb_minimum_distance|   5|     10000|    1000|0.85971777|  PASSED
+    rgb_permutations|   2|    100000|     100|0.98547170|  PASSED
+    rgb_permutations|   3|    100000|     100|0.13346308|  PASSED
+    rgb_permutations|   4|    100000|     100|0.30098202|  PASSED
+    rgb_permutations|   5|    100000|     100|0.49670259|  PASSED
+      rgb_lagged_sum|   0|   1000000|     100|0.00376838|   WEAK
+      rgb_lagged_sum|   1|   1000000|     100|0.84875325|  PASSED
+      rgb_lagged_sum|   2|   1000000|     100|0.47618795|  PASSED
+      rgb_lagged_sum|   3|   1000000|     100|0.74638546|  PASSED
+      rgb_lagged_sum|   4|   1000000|     100|0.66367284|  PASSED
+      rgb_lagged_sum|   5|   1000000|     100|0.38277246|  PASSED
+      rgb_lagged_sum|   6|   1000000|     100|0.89022413|  PASSED
+      rgb_lagged_sum|   7|   1000000|     100|0.20961380|  PASSED
+      rgb_lagged_sum|   8|   1000000|     100|0.85608212|  PASSED
+      rgb_lagged_sum|   9|   1000000|     100|0.98007494|  PASSED
+      rgb_lagged_sum|  10|   1000000|     100|0.11658240|  PASSED
+      rgb_lagged_sum|  11|   1000000|     100|0.59955707|  PASSED
+      rgb_lagged_sum|  12|   1000000|     100|0.00017001|   WEAK
+      rgb_lagged_sum|  13|   1000000|     100|0.90147191|  PASSED
+      rgb_lagged_sum|  14|   1000000|     100|0.41636295|  PASSED
+      rgb_lagged_sum|  15|   1000000|     100|0.37015147|  PASSED
+      rgb_lagged_sum|  16|   1000000|     100|0.66453012|  PASSED
+      rgb_lagged_sum|  17|   1000000|     100|0.18865006|  PASSED
+      rgb_lagged_sum|  18|   1000000|     100|0.12419575|  PASSED
+      rgb_lagged_sum|  19|   1000000|     100|0.39883314|  PASSED
+      rgb_lagged_sum|  20|   1000000|     100|0.09942580|  PASSED
+      rgb_lagged_sum|  21|   1000000|     100|0.53467964|  PASSED
+      rgb_lagged_sum|  22|   1000000|     100|0.97551479|  PASSED
+      rgb_lagged_sum|  23|   1000000|     100|0.53709182|  PASSED
+      rgb_lagged_sum|  24|   1000000|     100|0.97407004|  PASSED
+      rgb_lagged_sum|  25|   1000000|     100|0.19308485|  PASSED
+      rgb_lagged_sum|  26|   1000000|     100|0.02836261|  PASSED
+      rgb_lagged_sum|  27|   1000000|     100|0.09286364|  PASSED
+      rgb_lagged_sum|  28|   1000000|     100|0.64833884|  PASSED
+      rgb_lagged_sum|  29|   1000000|     100|0.50128799|  PASSED
+      rgb_lagged_sum|  30|   1000000|     100|0.18237609|  PASSED
+      rgb_lagged_sum|  31|   1000000|     100|0.92914172|  PASSED
+      rgb_lagged_sum|  32|   1000000|     100|0.11809175|  PASSED
+     rgb_kstest_test|   0|     10000|    1000|0.40816346|  PASSED
+     dab_bytedistrib|   0|  51200000|       1|0.21337569|  PASSED
+             dab_dct| 256|     50000|       1|0.25233302|  PASSED
+Preparing to run test 207.  ntuple = 0
+        dab_filltree|  32|  15000000|       1|0.29102117|  PASSED
+        dab_filltree|  32|  15000000|       1|0.48186931|  PASSED
+Preparing to run test 208.  ntuple = 0
+       dab_filltree2|   0|   5000000|       1|0.48666498|  PASSED
+       dab_filltree2|   1|   5000000|       1|0.90599317|  PASSED
+Preparing to run test 209.  ntuple = 0
+        dab_monobit2|  12|  65000000|       1|0.98621807|  PASSED
+#=============================================================================#
+# Summary: PASSED=110, WEAK=4, FAILED=0                                       #
+#          235,031.406 MB of random data created with 99.045 MB/sec           #
+#=============================================================================#
+#=============================================================================#
+# Runtime: 0:39:32                                                            #
+#=============================================================================#
+*/
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

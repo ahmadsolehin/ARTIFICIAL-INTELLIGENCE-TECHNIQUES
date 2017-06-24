@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>ArrayProxyIterator.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.collection</a> &gt; <span class="el_source">ArrayProxyIterator.java</span></div><h1>ArrayProxyIterator.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.collection;
+
+import static java.util.Objects.requireNonNull;
+
+import java.util.ListIterator;
+import java.util.NoSuchElementException;
+
+/**
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.4
+ * @version 3.0
+ */
+public class ArrayProxyIterator&lt;T, P extends ArrayProxy&lt;T, ?, ?&gt;&gt;
+	implements ListIterator&lt;T&gt;
+{
+
+	public final P proxy;
+
+<span class="fc" id="L38">	protected int cursor = 0;</span>
+<span class="fc" id="L39">	protected int lastElement = -1;</span>
+
+<span class="fc" id="L41">	public ArrayProxyIterator(final P proxy) {</span>
+<span class="fc" id="L42">		this.proxy = requireNonNull(proxy, &quot;ArrayProxy must not be null.&quot;);</span>
+<span class="fc" id="L43">	}</span>
+
+	@Override
+	public boolean hasNext() {
+<span class="fc bfc" id="L47" title="All 2 branches covered.">		return cursor != proxy.length;</span>
+	}
+
+	@Override
+	public T next() {
+<span class="fc" id="L52">		final int i = cursor;</span>
+<span class="pc bpc" id="L53" title="1 of 2 branches missed.">		if (cursor &gt;= proxy.length) {</span>
+<span class="nc" id="L54">			throw new NoSuchElementException();</span>
+		}
+
+<span class="fc" id="L57">		cursor = i + 1;</span>
+<span class="fc" id="L58">		return proxy.__get(lastElement = i);</span>
+	}
+
+	@Override
+	public int nextIndex() {
+<span class="fc" id="L63">		return cursor;</span>
+	}
+
+	@Override
+	public boolean hasPrevious() {
+<span class="fc bfc" id="L68" title="All 2 branches covered.">		return cursor != 0;</span>
+	}
+
+	@Override
+	public T previous() {
+<span class="fc" id="L73">		final int i = cursor - 1;</span>
+<span class="pc bpc" id="L74" title="1 of 2 branches missed.">		if (i &lt; 0) {</span>
+<span class="nc" id="L75">			throw new NoSuchElementException();</span>
+		}
+
+<span class="fc" id="L78">		cursor = i;</span>
+<span class="fc" id="L79">		return proxy.__get(lastElement = i);</span>
+	}
+
+	@Override
+	public int previousIndex() {
+<span class="fc" id="L84">		return cursor - 1;</span>
+	}
+
+	@Override
+	public void set(final T value) {
+<span class="fc" id="L89">		throw new UnsupportedOperationException(</span>
+			&quot;Iterator is immutable.&quot;
+		);
+	}
+
+	@Override
+	public void add(final T value) {
+<span class="nc" id="L96">		throw new UnsupportedOperationException(</span>
+			&quot;Can't change Iterator size.&quot;
+		);
+	}
+
+	@Override
+	public void remove() {
+<span class="nc" id="L103">		throw new UnsupportedOperationException(</span>
+			&quot;Can't change Iterator size.&quot;
+		);
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

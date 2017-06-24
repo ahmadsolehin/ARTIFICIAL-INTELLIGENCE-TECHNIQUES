@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>ProbabilitySelector.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">ProbabilitySelector.java</span></div><h1>ProbabilitySelector.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.lang.Math.abs;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static org.jenetics.internal.math.arithmetic.pow;
+import static org.jenetics.internal.math.base.ulpDistance;
+import static org.jenetics.internal.util.IndexSorter.sort;
+
+import java.util.Random;
+import java.util.function.Function;
+
+import org.jenetics.internal.math.DoubleAdder;
+import org.jenetics.internal.util.array;
+
+import org.jenetics.util.RandomRegistry;
+
+/**
+ * Probability selectors are a variation of fitness proportional selectors and
+ * selects individuals from a given population based on it's selection
+ * probability &lt;i&gt;P(i)&lt;/i&gt;.
+ * &lt;p&gt;
+ * &lt;img src=&quot;doc-files/FitnessProportionalSelection.svg&quot; width=&quot;400&quot; alt=&quot;Selection&quot;&gt;
+ * &lt;p&gt;
+ * Fitness proportional selection works as shown in the figure above. The
+ * runtime complexity of the implemented probability selectors is
+ * &lt;i&gt;O(n+&lt;/i&gt;log&lt;i&gt;(n))&lt;/i&gt; instead of &lt;i&gt;O(n&lt;sup&gt;2&lt;/sup&gt;)&lt;/i&gt; as for the naive
+ * approach: &lt;i&gt;A binary (index) search is performed on the summed probability
+ * array.&lt;/i&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.2
+ */
+<span class="pc bpc" id="L54" title="1 of 2 branches missed.">public abstract class ProbabilitySelector&lt;</span>
+	G extends Gene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+	implements Selector&lt;G, C&gt;
+{
+	private static final int SERIAL_INDEX_THRESHOLD = 35;
+
+<span class="fc" id="L62">	private static final long MAX_ULP_DISTANCE = pow(10, 10);</span>
+
+	private final boolean _sorted;
+	private final Function&lt;double[], double[]&gt; _reverter;
+
+
+	/**
+	 * Create a new {@code ProbabilitySelector} with the given {@code sorting}
+	 * flag. &lt;em&gt;This flag must set to {@code true} if the selector
+	 * implementation is sorting the population in the
+	 * {@link #probabilities(Population, int)} method.&lt;/em&gt;
+	 *
+	 * @param sorted {@code true} if the implementation is sorting the
+	 *        population when calculating the selection probabilities,
+	 *        {@code false} otherwise.
+	 */
+<span class="fc" id="L78">	protected ProbabilitySelector(final boolean sorted) {</span>
+<span class="fc" id="L79">		_sorted = sorted;</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">		_reverter = sorted ? array::revert : ProbabilitySelector::sortAndRevert;</span>
+<span class="fc" id="L81">	}</span>
+
+	/**
+	 * Create a new selector with {@code sorted = false}.
+	 */
+	protected ProbabilitySelector() {
+<span class="fc" id="L87">		this(false);</span>
+<span class="fc" id="L88">	}</span>
+
+	@Override
+	public Population&lt;G, C&gt; select(
+		final Population&lt;G, C&gt; population,
+		final int count,
+		final Optimize opt
+	) {
+<span class="fc" id="L96">		requireNonNull(population, &quot;Population&quot;);</span>
+<span class="fc" id="L97">		requireNonNull(opt, &quot;Optimization&quot;);</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">		if (count &lt; 0) {</span>
+<span class="fc" id="L99">			throw new IllegalArgumentException(format(</span>
+				&quot;Selection count must be greater or equal then zero, but was %s.&quot;,
+<span class="fc" id="L101">				count</span>
+			));
+		}
+
+<span class="fc" id="L105">		final Population&lt;G, C&gt; selection = new Population&lt;&gt;(count);</span>
+<span class="fc bfc" id="L106" title="All 4 branches covered.">		if (count &gt; 0 &amp;&amp; !population.isEmpty()) {</span>
+<span class="fc" id="L107">			final Population&lt;G, C&gt; pop = copy(population);</span>
+
+<span class="fc" id="L109">			final double[] prob = probabilities(pop, count, opt);</span>
+<span class="pc bpc" id="L110" title="2 of 4 branches missed.">			assert pop.size() == prob.length</span>
+				: &quot;Population size and probability length are not equal.&quot;;
+
+<span class="fc" id="L113">			checkAndCorrect(prob);</span>
+<span class="pc bpc" id="L114" title="2 of 4 branches missed.">			assert sum2one(prob) : &quot;Probabilities doesn't sum to one.&quot;;</span>
+
+<span class="fc" id="L116">			incremental(prob);</span>
+
+<span class="fc" id="L118">			final Random random = RandomRegistry.getRandom();</span>
+<span class="fc" id="L119">			selection.fill(</span>
+				() -&gt; pop.get(indexOf(prob, random.nextDouble())),
+				count
+			);
+		}
+
+<span class="fc" id="L125">		return selection;</span>
+	}
+
+	Population&lt;G, C&gt; copy(final Population&lt;G, C&gt; population) {
+<span class="fc" id="L129">		Population&lt;G, C&gt; pop = population;</span>
+<span class="fc bfc" id="L130" title="All 2 branches covered.">		if (_sorted) {</span>
+<span class="fc" id="L131">			pop = population.copy();</span>
+<span class="fc" id="L132">			pop.populationSort();</span>
+		}
+
+<span class="fc" id="L135">		return pop;</span>
+	}
+
+	/**
+	 * This method takes the probabilities from the
+	 * {@link #probabilities(Population, int)} method and inverts it if needed.
+	 *
+	 * @param population The population.
+	 * @param count The number of phenotypes to select.
+	 * @param opt Determines whether the individuals with higher fitness values
+	 *        or lower fitness values must be selected. This parameter
+	 *        determines whether the GA maximizes or minimizes the fitness
+	 *        function.
+	 * @return Probability array.
+	 */
+	protected final double[] probabilities(
+		final Population&lt;G, C&gt; population,
+		final int count,
+		final Optimize opt
+	) {
+<span class="fc bfc" id="L155" title="All 2 branches covered.">		return requireNonNull(opt) == Optimize.MINIMUM</span>
+<span class="fc" id="L156">			? _reverter.apply(probabilities(population, count))</span>
+<span class="fc" id="L157">			: probabilities(population, count);</span>
+	}
+
+	// Package private for testing.
+	static double[] sortAndRevert(final double[] array) {
+<span class="fc" id="L162">		final int[] indexes = sort(array);</span>
+
+		// Copy the elements in reversed order.
+<span class="fc" id="L165">		final double[] result = new double[array.length];</span>
+<span class="fc bfc" id="L166" title="All 2 branches covered.">		for (int i = 0; i &lt; result.length; ++i) {</span>
+<span class="fc" id="L167">			result[indexes[result.length - 1 - i]] = array[indexes[i]];</span>
+		}
+
+<span class="fc" id="L170">		return result;</span>
+	}
+
+	/**
+	 * &lt;p&gt;
+	 * Return an Probability array, which corresponds to the given Population.
+	 * The probability array and the population must have the same size. The
+	 * population is not sorted. If a subclass needs a sorted population, the
+	 * subclass is responsible to sort the population.
+	 * &lt;/p&gt;
+	 * The implementer always assumes that higher fitness values are better. The
+	 * base class inverts the probabilities, by reverting the returned
+	 * probability array, if the GA is supposed to minimize the fitness function.
+	 *
+	 * @param population The &lt;em&gt;unsorted&lt;/em&gt; population.
+	 * @param count The number of phenotypes to select. &lt;i&gt;This parameter is not
+	 *        needed for most implementations.&lt;/i&gt;
+	 * @return Probability array. The returned probability array must have the
+	 *         length {@code population.size()} and &lt;strong&gt;must&lt;/strong&gt; sum to
+	 *         one. The returned value is checked with
+	 *         {@code assert(Math.abs(math.sum(probabilities) - 1.0) &lt; 0.0001)}
+	 *         in the base class.
+	 */
+	protected abstract double[] probabilities(
+		final Population&lt;G, C&gt; population,
+		final int count
+	);
+
+	/**
+	 * Checks if the given probability values are finite. If not, all values are
+	 * set to the same probability.
+	 *
+	 * @param probabilities the probabilities to check.
+	 */
+	private static void checkAndCorrect(final double[] probabilities) {
+<span class="fc" id="L205">		boolean ok = true;</span>
+<span class="pc bpc" id="L206" title="1 of 4 branches missed.">		for (int i = probabilities.length; --i &gt;= 0 &amp;&amp; ok;) {</span>
+<span class="fc" id="L207">			ok = Double.isFinite(probabilities[i]);</span>
+		}
+
+<span class="pc bpc" id="L210" title="1 of 2 branches missed.">		if (!ok) {</span>
+<span class="nc" id="L211">			final double value = 1.0/probabilities.length;</span>
+<span class="nc bnc" id="L212" title="All 2 branches missed.">			for (int i = probabilities.length; --i &gt;= 0;) {</span>
+<span class="nc" id="L213">				probabilities[i] = value;</span>
+			}
+		}
+<span class="fc" id="L216">	}</span>
+
+	/**
+	 * Check if the given probabilities sum to one.
+	 *
+	 * @param probabilities the probabilities to check.
+	 * @return {@code true} if the sum of the probabilities are within the error
+	 *         range, {@code false} otherwise.
+	 */
+	static boolean sum2one(final double[] probabilities) {
+<span class="pc bpc" id="L226" title="1 of 2 branches missed.">		final double sum = probabilities.length &gt; 0</span>
+<span class="pc" id="L227">			? DoubleAdder.sum(probabilities)</span>
+			: 1.0;
+<span class="pc bpc" id="L229" title="1 of 2 branches missed.">		return abs(ulpDistance(sum, 1.0)) &lt; MAX_ULP_DISTANCE;</span>
+	}
+
+	static boolean eq(final double a, final double b) {
+<span class="fc bfc" id="L233" title="All 2 branches covered.">		return abs(ulpDistance(a, b)) &lt; MAX_ULP_DISTANCE;</span>
+	}
+
+	static int indexOf(final double[] incr, final double v) {
+<span class="fc bfc" id="L237" title="All 2 branches covered.">		return incr.length &lt;= SERIAL_INDEX_THRESHOLD</span>
+<span class="fc" id="L238">			? indexOfSerial(incr, v)</span>
+<span class="fc" id="L239">			: indexOfBinary(incr, v);</span>
+	}
+
+	/**
+	 * Perform a binary-search on the summed probability array.
+	 */
+	static int indexOfBinary(final double[] incr, final double v) {
+<span class="fc" id="L246">		int imin = 0;</span>
+<span class="fc" id="L247">		int imax = incr.length;</span>
+<span class="fc" id="L248">		int index = -1;</span>
+
+<span class="pc bpc" id="L250" title="1 of 4 branches missed.">		while (imax &gt; imin &amp;&amp; index == -1) {</span>
+<span class="fc" id="L251">			final int imid = (imin + imax) &gt;&gt;&gt; 1;</span>
+
+<span class="fc bfc" id="L253" title="All 6 branches covered.">			if (imid == 0 || (incr[imid] &gt;= v &amp;&amp; incr[imid - 1] &lt; v)) {</span>
+<span class="fc" id="L254">				index = imid;</span>
+<span class="fc bfc" id="L255" title="All 2 branches covered.">			} else if (incr[imid] &lt;= v) {</span>
+<span class="fc" id="L256">				imin = imid + 1;</span>
+<span class="pc bpc" id="L257" title="1 of 2 branches missed.">			} else if (incr[imid] &gt; v) {</span>
+<span class="fc" id="L258">				imax = imid;</span>
+			}
+<span class="fc" id="L260">		}</span>
+
+<span class="fc" id="L262">		return index;</span>
+	}
+
+	/**
+	 * Perform a serial-search on the summed probability array.
+	 */
+	static int indexOfSerial(final double[] incr, final double v) {
+<span class="fc" id="L269">		int index = -1;</span>
+<span class="fc bfc" id="L270" title="All 4 branches covered.">		for (int i = 0; i &lt; incr.length &amp;&amp; index == -1; ++i) {</span>
+<span class="fc bfc" id="L271" title="All 2 branches covered.">			if (incr[i] &gt;= v) {</span>
+<span class="fc" id="L272">				index = i;</span>
+			}
+		}
+
+<span class="fc" id="L276">		return index;</span>
+	}
+
+	/**
+	 * In-place summation of the probability array.
+	 */
+	static double[] incremental(final double[] values) {
+<span class="fc" id="L283">		final DoubleAdder adder = new DoubleAdder(values[0]);</span>
+<span class="fc bfc" id="L284" title="All 2 branches covered.">		for (int i = 1; i &lt; values.length; ++i) {</span>
+<span class="fc" id="L285">			values[i] = adder.add(values[i]).doubleValue();</span>
+		}
+<span class="fc" id="L287">		return values;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

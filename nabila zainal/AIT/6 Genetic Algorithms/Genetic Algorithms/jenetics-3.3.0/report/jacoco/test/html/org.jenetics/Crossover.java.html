@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Crossover.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">Crossover.java</span></div><h1>Crossover.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import java.util.Random;
+
+import org.jenetics.util.MSeq;
+import org.jenetics.util.RandomRegistry;
+
+/**
+ * &lt;p&gt;
+ * Performs a &lt;a href=&quot;http://en.wikipedia.org/wiki/Crossover_%28genetic_algorithm%29&quot;&gt;
+ * Crossover&lt;/a&gt; of two {@link Chromosome}.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * The order ({@link #getOrder()}) of this Recombination implementation is two.
+ * &lt;/p&gt;
+ *
+ * @param &lt;G&gt; the gene type.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.0
+ */
+public abstract class Crossover&lt;
+	G extends Gene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+	extends Recombinator&lt;G, C&gt;
+{
+
+	/**
+	 * Constructs an alterer with a given recombination probability.
+	 *
+	 * @param probability The recombination probability.
+	 * @throws IllegalArgumentException if the {@code probability} is not in the
+	 *          valid range of {@code [0, 1]}.
+	 */
+	protected Crossover(final double probability) {
+<span class="fc" id="L57">		super(probability, 2);</span>
+<span class="fc" id="L58">	}</span>
+
+	@Override
+	protected final int recombine(
+		final Population&lt;G, C&gt; population,
+		final int[] individuals,
+		final long generation
+	) {
+<span class="fc" id="L66">		final Random random = RandomRegistry.getRandom();</span>
+
+<span class="fc" id="L68">		final Phenotype&lt;G, C&gt; pt1 = population.get(individuals[0]);</span>
+<span class="fc" id="L69">		final Phenotype&lt;G, C&gt; pt2 = population.get(individuals[1]);</span>
+<span class="fc" id="L70">		final Genotype&lt;G&gt; gt1 = pt1.getGenotype();</span>
+<span class="fc" id="L71">		final Genotype&lt;G&gt; gt2 = pt2.getGenotype();</span>
+
+		//Choosing the Chromosome for crossover.
+<span class="fc" id="L74">		final int chIndex = random.nextInt(gt1.length());</span>
+
+<span class="fc" id="L76">		final MSeq&lt;Chromosome&lt;G&gt;&gt; c1 = gt1.toSeq().copy();</span>
+<span class="fc" id="L77">		final MSeq&lt;Chromosome&lt;G&gt;&gt; c2 = gt2.toSeq().copy();</span>
+<span class="fc" id="L78">		final MSeq&lt;G&gt; genes1 = c1.get(chIndex).toSeq().copy();</span>
+<span class="fc" id="L79">		final MSeq&lt;G&gt; genes2 = c2.get(chIndex).toSeq().copy();</span>
+
+<span class="fc" id="L81">		crossover(genes1, genes2);</span>
+
+<span class="fc" id="L83">		c1.set(chIndex, c1.get(chIndex).newInstance(genes1.toISeq()));</span>
+<span class="fc" id="L84">		c2.set(chIndex, c2.get(chIndex).newInstance(genes2.toISeq()));</span>
+
+		//Creating two new Phenotypes and exchanging it with the old.
+<span class="fc" id="L87">		population.set(</span>
+			individuals[0],
+<span class="fc" id="L89">			pt1.newInstance(gt1.newInstance(c1.toISeq()), generation)</span>
+		);
+<span class="fc" id="L91">		population.set(</span>
+			individuals[1],
+<span class="fc" id="L93">			pt2.newInstance(gt1.newInstance(c2.toISeq()), generation)</span>
+		);
+
+<span class="fc" id="L96">		return getOrder();</span>
+	}
+
+
+	/**
+	 * Template method which performs the crossover. The arguments given are
+	 * mutable non null arrays of the same length.
+	 *
+	 * @param that the genes of the first chromosome
+	 * @param other the genes of the other chromosome
+	 * @return the number of altered genes
+	 */
+	protected abstract int crossover(final MSeq&lt;G&gt; that, final MSeq&lt;G&gt; other);
+
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

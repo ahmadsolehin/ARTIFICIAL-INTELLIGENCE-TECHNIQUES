@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>AbstractNumericGene.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">AbstractNumericGene.java</span></div><h1>AbstractNumericGene.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import java.io.Serializable;
+
+/**
+ * Abstract base class for implementing concrete NumericGenes.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @version 1.6
+ * @since 1.6
+ */
+abstract class AbstractNumericGene&lt;
+	N extends Number &amp; Comparable&lt;? super N&gt;,
+	G extends AbstractNumericGene&lt;N, G&gt;
+&gt;
+	extends AbstractBoundedGene&lt;N, G&gt;
+	implements NumericGene&lt;N, G&gt;, Serializable
+{
+	private static final long serialVersionUID = 1L;
+
+	/**
+	 * Create new {@code NumericGene}.
+	 *
+	 * @param value The value of the gene.
+	 * @param min The allowed min value of the gene.
+	 * @param max The allows max value of the gene.
+	 * @throws NullPointerException if one of the given arguments is
+	 *         {@code null}.
+	 */
+	protected AbstractNumericGene(final N value, final N min, final N max) {
+<span class="fc" id="L50">		super(value, min, max);</span>
+<span class="fc" id="L51">	}</span>
+
+	@Override
+	public abstract G newInstance(final Number number);
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

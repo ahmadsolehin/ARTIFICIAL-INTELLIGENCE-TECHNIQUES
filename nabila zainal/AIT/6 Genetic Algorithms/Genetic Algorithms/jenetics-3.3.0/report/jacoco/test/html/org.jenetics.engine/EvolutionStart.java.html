@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>EvolutionStart.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.engine</a> &gt; <span class="el_source">EvolutionStart.java</span></div><h1>EvolutionStart.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.engine;
+
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static org.jenetics.internal.util.Equality.eq;
+
+import org.jenetics.internal.util.Equality;
+import org.jenetics.internal.util.Hash;
+import org.jenetics.internal.util.require;
+
+import org.jenetics.Gene;
+import org.jenetics.Population;
+
+/**
+ * Represents a state of the GA at the start of an evolution step.
+ *
+ * @see EvolutionResult
+ *
+ * @param &lt;G&gt; the gene type
+ * @param &lt;C&gt; the fitness type
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.1
+ * @version 3.1
+ */
+public final class EvolutionStart&lt;
+	G extends Gene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+{
+
+	private final Population&lt;G, C&gt; _population;
+	private final long _generation;
+
+	private EvolutionStart(
+		final Population&lt;G, C&gt; population,
+		final long generation
+<span class="fc" id="L57">	) {</span>
+<span class="fc" id="L58">		_population = requireNonNull(population);</span>
+<span class="fc" id="L59">		_generation = require.positive(generation);</span>
+<span class="fc" id="L60">	}</span>
+
+	/**
+	 * Return the population before the evolution step.
+	 *
+	 * @return the start population
+	 */
+	public Population&lt;G, C&gt; getPopulation() {
+<span class="fc" id="L68">		return _population;</span>
+	}
+
+	/**
+	 * Return the generation of the start population.
+	 *
+	 * @return the start generation
+	 */
+	public long getGeneration() {
+<span class="fc" id="L77">		return _generation;</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="nc" id="L82">		return Hash.of(getClass())</span>
+<span class="nc" id="L83">			.and(_population)</span>
+<span class="nc" id="L84">			.and(_generation).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="nc bnc" id="L89" title="All 2 branches missed.">		return obj instanceof EvolutionStart&lt;?, ?&gt; &amp;&amp;</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">			eq(_generation, ((EvolutionStart&lt;?, ?&gt;)obj)._generation) &amp;&amp;</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">			eq(_population, ((EvolutionStart&lt;?, ?&gt;)obj)._population);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="nc" id="L96">		return format(</span>
+			&quot;EvolutionStart[population-size=%d, generation=%d]&quot;,
+<span class="nc" id="L98">			_population.size(), _generation</span>
+		);
+	}
+
+	/**
+	 * Create a new evolution start object with the given population and for the
+	 * given generation.
+	 *
+	 * @param &lt;G&gt; the gene type
+	 * @param &lt;C&gt; the fitness type
+	 * @param population the start population.
+	 * @param generation the start generation of the population
+	 * @return a new evolution start object
+	 * @throws java.lang.NullPointerException if the given {@code population} is
+	 *         {@code null}.
+	 * @throws IllegalArgumentException if the given {@code generation} is
+	 *         smaller then one
+	 */
+	public static &lt;G extends Gene&lt;?, G&gt;, C extends Comparable&lt;? super C&gt;&gt;
+	EvolutionStart&lt;G, C&gt; of(
+		final Population&lt;G, C&gt; population,
+		final long generation
+	) {
+<span class="fc" id="L121">		return new EvolutionStart&lt;&gt;(population, generation);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

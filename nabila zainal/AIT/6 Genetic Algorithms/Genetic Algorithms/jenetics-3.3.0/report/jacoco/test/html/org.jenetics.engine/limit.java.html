@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>limit.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.engine</a> &gt; <span class="el_source">limit.java</span></div><h1>limit.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.engine;
+
+import static java.lang.String.format;
+
+import java.time.Clock;
+import java.time.Duration;
+import java.util.function.Predicate;
+
+import org.jenetics.internal.util.require;
+
+import org.jenetics.util.NanoClock;
+
+/**
+ * This class contains factory methods for creating predicates, which can be
+ * used for limiting the evolution stream.
+ *
+ * @see EvolutionStream#limit(Predicate)
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.0
+ * @version 3.1
+ */
+public final class limit {
+<span class="nc" id="L43">	private limit() {require.noInstance();}</span>
+
+	/**
+	 * Return a predicate, which will truncate the evolution stream after the
+	 * given number of generations. The returned predicate behaves like a call
+	 * of the {@link java.util.stream.Stream#limit(long)} and exists for
+	 * &lt;i&gt;completeness&lt;/i&gt; reasons.
+	 *
+	 * @since 3.1
+	 *
+	 * @param generation the number of generations after the evolution stream is
+	 *        truncated
+	 * @return a predicate which truncates the evolution stream after the given
+	 *        number of generations
+	 * @throws java.lang.IllegalArgumentException if the given {@code generation}
+	 *         is smaller than zero.
+	 */
+	public static Predicate&lt;Object&gt; byFixedGeneration(final long generation) {
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">		if (generation &lt; 0) {</span>
+<span class="nc" id="L62">			throw new IllegalArgumentException(format(</span>
+				&quot;The number of generations must greater than one, but was %d&quot;,
+<span class="nc" id="L64">				generation</span>
+			));
+		}
+
+<span class="fc" id="L68">		return new Predicate&lt;Object&gt;() {</span>
+			private long _current;
+			@Override
+			public boolean test(final Object o) {
+<span class="fc bfc" id="L72" title="All 2 branches covered.">				return ++_current &lt; generation;</span>
+			}
+		};
+	}
+
+	/**
+	 * Return a predicate, which will truncate the evolution stream if no
+	 * better phenotype could be found after the given number of
+	 * {@code generations}.
+	 *
+	 * &lt;pre&gt;{@code
+	 * final Phenotype&lt;DoubleGene, Double&gt; result = engine.stream()
+	 *      // Truncate the evolution stream after 5 &quot;steady&quot; generations.
+	 *     .limit(bySteadyFitness(5))
+	 *      // The evolution will stop after maximal 100 generations.
+	 *     .limit(100)
+	 *     .collect(toBestPhenotype());
+	 * }&lt;/pre&gt;
+	 *
+	 * @param generations the number of &lt;i&gt;steady&lt;/i&gt; generations
+	 * @param &lt;C&gt; the fitness type
+	 * @return a predicate which truncate the evolution stream if no better
+	 *         phenotype could be found after a give number of
+	 *         {@code generations}
+	 * @throws IllegalArgumentException if the generation is smaller than
+	 *         one.
+	 */
+	public static &lt;C extends Comparable&lt;? super C&gt;&gt;
+	Predicate&lt;EvolutionResult&lt;?, C&gt;&gt; bySteadyFitness(final int generations) {
+<span class="nc" id="L101">		return new SteadyFitnessLimit&lt;&gt;(generations);</span>
+	}
+
+	/**
+	 * Return a predicate, which will truncate the evolution stream if the GA
+	 * execution exceeds a given time duration. This predicate is (normally)
+	 * used as safety net, for guaranteed stream truncation.
+	 *
+	 * &lt;pre&gt;{@code
+	 * final Phenotype&lt;DoubleGene, Double&gt; result = engine.stream()
+	 *      // Truncate the evolution stream after 5 &quot;steady&quot; generations.
+	 *     .limit(bySteadyFitness(5))
+	 *      // The evolution will stop after maximal 500 ms.
+	 *     .limit(byExecutionTime(Duration.ofMillis(500), Clock.systemUTC())
+	 *     .collect(toBestPhenotype());
+	 * }&lt;/pre&gt;
+	 *
+	 * @since 3.1
+	 *
+	 * @param duration the duration after the evolution stream will be truncated
+	 * @param clock the clock used for measure the execution time
+	 * @return a predicate, which will truncate the evolution stream, based on
+	 *         the exceeded execution time
+	 * @throws NullPointerException if one of the arguments is {@code null}
+	 */
+	public static Predicate&lt;Object&gt;
+	byExecutionTime(final Duration duration, final Clock clock) {
+<span class="fc" id="L128">		return new ExecutionTimeLimit(duration, clock);</span>
+	}
+
+	/**
+	 * Return a predicate, which will truncate the evolution stream if the GA
+	 * execution exceeds a given time duration. This predicate is (normally)
+	 * used as safety net, for guaranteed stream truncation.
+	 *
+	 * &lt;pre&gt;{@code
+	 * final Phenotype&lt;DoubleGene, Double&gt; result = engine.stream()
+	 *      // Truncate the evolution stream after 5 &quot;steady&quot; generations.
+	 *     .limit(bySteadyFitness(5))
+	 *      // The evolution will stop after maximal 500 ms.
+	 *     .limit(byExecutionTime(Duration.ofMillis(500))
+	 *     .collect(toBestPhenotype());
+	 * }&lt;/pre&gt;
+	 *
+	 * @since 3.1
+	 *
+	 * @param duration the duration after the evolution stream will be truncated
+	 * @return a predicate, which will truncate the evolution stream, based on
+	 *         the exceeded execution time
+	 * @throws NullPointerException if the evolution {@code duration} is
+	 *         {@code null}
+	 */
+	public static Predicate&lt;Object&gt;
+	byExecutionTime(final Duration duration) {
+<span class="nc" id="L155">		return byExecutionTime(duration, NanoClock.systemUTC());</span>
+	}
+
+	/**
+	 * Return a predicate, which will truncated the evolution stream if the
+	 * best fitness of the current population becomes less than the specified
+	 * threshold and the objective is set to minimize the fitness. This
+	 * predicate also stops the evolution if the best fitness in the current
+	 * population becomes greater than the user-specified fitness threshold when
+	 * the objective is to maximize the fitness.
+	 *
+	 * &lt;pre&gt;{@code
+	 * final Phenotype&lt;DoubleGene, Double&gt; result = engine.stream()
+	 *      // Truncate the evolution stream if the best fitness is higher than
+	 *      // the given threshold of '2.3'.
+	 *     .limit(byFitnessThreshold(2.3))
+	 *      // The evolution will stop after maximal 250 generations; guarantees
+	 *      // the termination (truncation) of the evolution stream.
+	 *     .limit(250)
+	 *     .collect(toBestPhenotype());
+	 * }&lt;/pre&gt;
+	 *
+	 * @since 3.1
+	 *
+	 * @param threshold the desired threshold
+	 * @param &lt;C&gt; the fitness type
+	 * @return the predicate which truncates the evolution stream based on the
+	 *         given {@code threshold}.
+	 * @throws NullPointerException if the given {@code threshold} is
+	 *        {@code null}.
+	 */
+	public static &lt;C extends Comparable&lt;? super C&gt;&gt;
+	Predicate&lt;EvolutionResult&lt;?, C&gt;&gt; byFitnessThreshold(final C threshold) {
+<span class="nc" id="L188">		return new FitnessThresholdLimit&lt;&gt;(threshold);</span>
+	}
+
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

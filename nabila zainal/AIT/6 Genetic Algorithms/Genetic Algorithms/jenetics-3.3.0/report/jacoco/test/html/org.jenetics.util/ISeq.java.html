@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>ISeq.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.util</a> &gt; <span class="el_source">ISeq.java</span></div><h1>ISeq.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.util;
+
+import static java.util.Objects.requireNonNull;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collector;
+
+import org.jenetics.internal.collection.ArrayProxyMSeq;
+import org.jenetics.internal.collection.ObjectArrayProxy;
+import org.jenetics.internal.util.require;
+
+/**
+ * Immutable, ordered, fixed sized sequence.
+ *
+ * @see MSeq
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.3
+ */
+public interface ISeq&lt;T&gt;
+	extends
+		Seq&lt;T&gt;,
+		Copyable&lt;MSeq&lt;T&gt;&gt;
+{
+
+	@Override
+	public ISeq&lt;T&gt; subSeq(final int start, final int end);
+
+	@Override
+	public ISeq&lt;T&gt; subSeq(final int start);
+
+	@Override
+	public &lt;B&gt; ISeq&lt;B&gt; map(final Function&lt;? super T, ? extends B&gt; mapper);
+
+	/**
+	 * Return a shallow copy of this sequence. The sequence elements are not
+	 * cloned.
+	 *
+	 * @return a shallow copy of this sequence.
+	 */
+	@Override
+	public MSeq&lt;T&gt; copy();
+
+
+	/* *************************************************************************
+	 *  Some static factory methods.
+	 * ************************************************************************/
+
+	/**
+	 * Single instance of an empty {@code ISeq}.
+	 *
+	 * @since 3.3
+	 */
+<span class="fc" id="L77">	public static final ISeq&lt;?&gt; EMPTY =</span>
+<span class="fc" id="L78">		new ArrayProxyMSeq&lt;&gt;(new ObjectArrayProxy&lt;&gt;(0)).toISeq();</span>
+
+	/**
+	 * Return an empty {@code ISeq}.
+	 *
+	 * @since 3.3
+	 *
+	 * @param &lt;T&gt; the element type of the returned {@code ISeq}.
+	 * @return an empty {@code ISeq}.
+	 */
+	@SuppressWarnings(&quot;unchecked&quot;)
+	public static &lt;T&gt; ISeq&lt;T&gt; empty() {
+<span class="fc" id="L90">		return (ISeq&lt;T&gt;)EMPTY;</span>
+	}
+
+	/**
+	 * Returns a {@code Collector} that accumulates the input elements into a
+	 * new {@code ISeq}.
+	 *
+	 * @param &lt;T&gt; the type of the input elements
+	 * @return a {@code Collector} which collects all the input elements into an
+	 *         {@code ISeq}, in encounter order
+	 */
+	public static &lt;T&gt; Collector&lt;T, ?, ISeq&lt;T&gt;&gt; toISeq() {
+<span class="fc" id="L102">		return Collector.of(</span>
+			(Supplier&lt;List&lt;T&gt;&gt;)ArrayList::new,
+			List::add,
+			(left, right) -&gt; { left.addAll(right); return left; },
+			ISeq::of
+		);
+	}
+
+	/**
+	 * Create a new {@code ISeq} from the given values.
+	 *
+	 * @param &lt;T&gt; the element type
+	 * @param values the array values.
+	 * @return a new {@code ISeq} with the given values.
+	 * @throws NullPointerException if the {@code values} array is {@code null}.
+	 */
+	@SafeVarargs
+	public static &lt;T&gt; ISeq&lt;T&gt; of(final T... values) {
+<span class="fc bfc" id="L120" title="All 2 branches covered.">		return values.length == 0</span>
+<span class="fc" id="L121">			? empty()</span>
+<span class="fc" id="L122">			: MSeq.of(values).toISeq();</span>
+	}
+
+	/**
+	 * Create a new {@code ISeq} from the given values.
+	 *
+	 * @param &lt;T&gt; the element type
+	 * @param values the array values.
+	 * @return a new {@code ISeq} with the given values.
+	 * @throws NullPointerException if the {@code values} array is {@code null}.
+	 */
+	@SuppressWarnings(&quot;unchecked&quot;)
+	public static &lt;T&gt; ISeq&lt;T&gt; of(final Iterable&lt;? extends T&gt; values) {
+<span class="fc" id="L135">		requireNonNull(values);</span>
+
+<span class="pc bpc" id="L137" title="1 of 4 branches missed.">		return values instanceof ISeq&lt;?&gt;</span>
+			? (ISeq&lt;T&gt;)values
+			: values instanceof MSeq&lt;?&gt;
+<span class="pc" id="L140">				? ((MSeq&lt;T&gt;)values).toISeq()</span>
+<span class="fc" id="L141">				: MSeq.of(values).toISeq();</span>
+	}
+
+//	/**
+//	 * Create a new {@code ISeq} instance from the remaining elements of the
+//	 * given iterator.
+//	 *
+//	 * @since 3.3
+//	 *
+//	 * @param &lt;T&gt; the element type.
+//	 * @return a new {@code ISeq} with the given remaining values.
+//	 * @throws NullPointerException if the {@code values} object is
+//	 *        {@code null}.
+//	 */
+//	public static &lt;T&gt; ISeq&lt;T&gt; of(final Iterator&lt;? extends T&gt; values) {
+//		final MSeq&lt;T&gt; seq = MSeq.of(values);
+//		return seq.isEmpty() ? empty() : seq.toISeq();
+//	}
+
+	/**
+	 * Creates a new sequence, which is filled with objects created be the given
+	 * {@code supplier}.
+	 *
+	 * @since 3.2
+	 *
+	 * @param &lt;T&gt; the element type of the sequence
+	 * @param supplier the {@code Supplier} which creates the elements, the
+	 *        returned sequence is filled with
+	 * @param length the length of the returned sequence
+	 * @return a new sequence filled with elements given by the {@code supplier}
+	 * @throws NegativeArraySizeException if the given {@code length} is
+	 *         negative
+	 * @throws NullPointerException if the given {@code supplier} is
+	 *         {@code null}
+	 */
+	public static &lt;T&gt; ISeq&lt;T&gt; of(
+		final Supplier&lt;? extends T&gt; supplier,
+		final int length
+	) {
+<span class="fc" id="L180">		requireNonNull(supplier);</span>
+<span class="fc" id="L181">		require.nonNegative(length);</span>
+
+<span class="pc bpc" id="L183" title="1 of 2 branches missed.">		return length == 0</span>
+<span class="pc" id="L184">			? empty()</span>
+<span class="fc" id="L185">			: MSeq.&lt;T&gt;ofLength(length).fill(supplier).toISeq();</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

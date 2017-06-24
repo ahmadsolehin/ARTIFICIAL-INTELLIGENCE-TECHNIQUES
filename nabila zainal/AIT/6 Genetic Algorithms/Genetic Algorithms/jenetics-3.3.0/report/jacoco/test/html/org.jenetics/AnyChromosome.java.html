@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>AnyChromosome.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">AnyChromosome.java</span></div><h1>AnyChromosome.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.util.Objects.requireNonNull;
+
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+
+import org.jenetics.internal.util.Equality;
+
+import org.jenetics.util.ISeq;
+
+/**
+ * {@code Chromosome} implementation, which allows to create genes without
+ * explicit implementing the {@code Chromosome} interface.
+ *
+ * &lt;pre&gt;{@code
+ * public class LastMonday {
+ *
+ *     // First monday of 2015.
+ *     private static final LocalDate MIN_MONDAY = LocalDate.of(2015, 1, 5);
+ *
+ *     // The used Codec.
+ *     private static final Codec&lt;LocalDate, AnyGene&lt;LocalDate&gt;&gt; CODEC = Codec.of(
+ *         Genotype.of(AnyChromosome.of(LastMonday::nextRandomMonday)),
+ *         gt -&gt; gt.getGene().getAllele()
+ *     );
+ *
+ *     // Supplier of random 'LocalDate' objects. The implementation is responsible
+ *     // for guaranteeing the desired allele restriction. In this case we will
+ *     // generate only mondays.
+ *     private static LocalDate nextRandomMonday() {
+ *         return MIN_MONDAY.plusWeeks(RandomRegistry.getRandom().nextInt(1000));
+ *     }
+ *
+ *     // The fitness function: find a monday at the end of the month.
+ *     private static double fitness(final LocalDate date) {
+ *         return date.getDayOfMonth();
+ *     }
+ *
+ *     public static void main(final String[] args) {
+ *         final Engine&lt;AnyGene&lt;LocalDate&gt;, Double&gt; engine = Engine
+ *             .builder(LastMonday::fitness, CODEC)
+ *             .offspringSelector(new RouletteWheelSelector&lt;&gt;())
+ *             .build();
+ *
+ *         final Phenotype&lt;AnyGene&lt;LocalDate&gt;, Double&gt; best = engine.stream()
+ *             .limit(50)
+ *             .collect(EvolutionResult.toBestPhenotype());
+ *
+ *         System.out.println(best);
+ *     }
+ *
+ * }
+ * }&lt;/pre&gt;
+ *
+ * The &lt;i&gt;full&lt;/i&gt; example above shows how the {@code AnyChromosome} is used
+ * to use for an allele-type with no predefined gene- and chromosome type.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @version 3.3
+ * @since 3.3
+ */
+public class AnyChromosome&lt;A&gt; extends AbstractChromosome&lt;AnyGene&lt;A&gt;&gt; {
+
+	private final Supplier&lt;? extends A&gt; _supplier;
+	private final Predicate&lt;? super A&gt; _alleleValidator;
+	private final Predicate&lt;? super ISeq&lt;? super A&gt;&gt; _alleleSeqValidator;
+
+<span class="fc" id="L88">	private Boolean _valid = null;</span>
+
+	/**
+	 * Create a new {@code AnyChromosome} from the given {@code genes}
+	 * array. An chromosome is valid if both, the {@code alleleValidator} and
+	 * the {@code alleleSeqValidator} return {@code true}.
+	 *
+	 * @param genes the genes that form the chromosome.
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @param alleleValidator the validator used for validating the created gene.
+	 *        This predicate is used in the {@link AnyGene#isValid()} method.
+	 * @param alleleSeqValidator the validator used for validating the created
+	 *        chromosome. This predicate is used in the
+	 *        {@link AnyChromosome#isValid()} method.
+	 * @throws NullPointerException if the given arguments is {@code null}
+	 * @throws IllegalArgumentException if the length of the gene array is
+	 *         smaller than one.
+	 */
+	protected AnyChromosome(
+		final ISeq&lt;AnyGene&lt;A&gt;&gt; genes,
+		final Supplier&lt;? extends A&gt; supplier,
+		final Predicate&lt;? super A&gt; alleleValidator,
+		final Predicate&lt;? super ISeq&lt;? super A&gt;&gt; alleleSeqValidator
+	) {
+<span class="fc" id="L113">		super(genes);</span>
+<span class="fc" id="L114">		_supplier = requireNonNull(supplier);</span>
+<span class="fc" id="L115">		_alleleValidator = requireNonNull(alleleValidator);</span>
+<span class="fc" id="L116">		_alleleSeqValidator = requireNonNull(alleleSeqValidator);</span>
+<span class="fc" id="L117">	}</span>
+
+	@Override
+	public boolean isValid() {
+<span class="pc bpc" id="L121" title="1 of 4 branches missed.">		Boolean valid =</span>
+			(_alleleValidator == Equality.TRUE &amp;&amp;
+				_alleleSeqValidator == Equality.TRUE)
+			? Boolean.TRUE
+			: _valid;
+
+<span class="fc bfc" id="L127" title="All 2 branches covered.">		if (valid == null) {</span>
+<span class="fc" id="L128">			final ISeq&lt;A&gt; alleles = toSeq().map(Gene::getAllele);</span>
+<span class="pc bpc" id="L129" title="1 of 2 branches missed.">			valid = _alleleSeqValidator.test(alleles) &amp;&amp;</span>
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">				alleles.forAll(_alleleValidator);</span>
+		}
+
+<span class="fc" id="L133">		return _valid = valid;</span>
+	}
+
+	@Override
+	public Chromosome&lt;AnyGene&lt;A&gt;&gt; newInstance(final ISeq&lt;AnyGene&lt;A&gt;&gt; genes) {
+<span class="fc" id="L138">		return new AnyChromosome&lt;&gt;(</span>
+			genes,
+			_supplier,
+			_alleleValidator,
+			_alleleSeqValidator
+		);
+	}
+
+	@Override
+	public Chromosome&lt;AnyGene&lt;A&gt;&gt; newInstance() {
+<span class="fc" id="L148">		return of(_supplier, _alleleValidator, _alleleSeqValidator, length());</span>
+	}
+
+
+	/* *************************************************************************
+	 *  Static factory methods.
+	 * ************************************************************************/
+
+	/**
+	 * Create a new chromosome of type {@code A} with the given parameters.
+	 *
+	 * @param &lt;A&gt; the allele type
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @param alleleValidator the validator used for validating the created gene.
+	 *        This predicate is used in the {@link AnyGene#isValid()} method.
+	 * @param alleleSeqValidator the validator used for validating the created
+	 *        chromosome. This predicate is used in the
+	 *        {@link AnyChromosome#isValid()} method.
+	 * @param length the length of the created chromosome
+	 * @return a new chromosome of allele type {@code A}
+	 * @throws NullPointerException if the given arguments is {@code null}
+	 * @throws IllegalArgumentException if chromosome length is smaller than one.
+	 */
+	public static &lt;A&gt; AnyChromosome&lt;A&gt; of(
+		final Supplier&lt;? extends A&gt; supplier,
+		final Predicate&lt;? super A&gt; alleleValidator,
+		final Predicate&lt;? super ISeq&lt;? super A&gt;&gt; alleleSeqValidator,
+		final int length
+	) {
+<span class="fc" id="L178">		return new AnyChromosome&lt;&gt;(</span>
+<span class="fc" id="L179">			AnyGene.seq(length, supplier, alleleValidator),</span>
+			supplier,
+			alleleValidator,
+			alleleSeqValidator
+		);
+	}
+
+	/**
+	 * Create a new chromosome of type {@code A} with the given parameters.
+	 *
+	 * @param &lt;A&gt; the allele type
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @param validator the validator used for validating the created gene. This
+	 *        predicate is used in the {@link AnyGene#isValid()} method.
+	 * @param length the length of the created chromosome
+	 * @return a new chromosome of allele type {@code A}
+	 * @throws NullPointerException if the {@code supplier} or {@code validator}
+	 *         is {@code null}
+	 * @throws IllegalArgumentException if chromosome length is smaller than one.
+	 */
+	public static &lt;A&gt; AnyChromosome&lt;A&gt; of(
+		final Supplier&lt;? extends A&gt; supplier,
+		final Predicate&lt;? super A&gt; validator,
+		final int length
+	) {
+<span class="fc" id="L205">		return of(supplier, validator, Equality.TRUE, length);</span>
+	}
+
+	/**
+	 * Create a new chromosome of type {@code A} with the given parameters and
+	 * length one.
+	 *
+	 * @param &lt;A&gt; the allele type
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @param validator the validator used for validating the created gene. This
+	 *        predicate is used in the {@link #isValid()} method.
+	 * @return a new chromosome of allele type {@code A}
+	 * @throws NullPointerException if the {@code supplier} or {@code validator}
+	 *         is {@code null}
+	 */
+	public static &lt;A&gt; AnyChromosome&lt;A&gt; of(
+		final Supplier&lt;? extends A&gt; supplier,
+		final Predicate&lt;? super A&gt; validator
+	) {
+<span class="fc" id="L225">		return of(supplier, validator, 1);</span>
+	}
+
+	/**
+	 * Create a new chromosome of type {@code A} with the given parameters. The
+	 * {@code validator} predicate of the generated gene will always return
+	 * {@code true}.
+	 *
+	 * @param &lt;A&gt; the allele type
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @param length the length of the created chromosome
+	 * @return a new chromosome of allele type {@code A}
+	 * @throws NullPointerException if the {@code supplier} is {@code null}
+	 * @throws IllegalArgumentException if chromosome length is smaller than one.
+	 */
+	public static &lt;A&gt; AnyChromosome&lt;A&gt; of(
+		final Supplier&lt;? extends A&gt; supplier,
+		final int length
+	) {
+<span class="fc" id="L245">		return of(supplier, Equality.TRUE, length);</span>
+	}
+
+	/**
+	 * Create a new chromosome of type {@code A} with the given parameters and
+	 * length one. The {@code validator} predicate of the generated gene will
+	 * always return {@code true}.
+	 *
+	 * @param &lt;A&gt; the allele type
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @return a new chromosome of allele type {@code A}
+	 * @throws NullPointerException if the {@code supplier} is {@code null}
+	 */
+	public static &lt;A&gt; AnyChromosome&lt;A&gt; of(final Supplier&lt;? extends A&gt; supplier) {
+<span class="fc" id="L260">		return of(supplier, 1);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

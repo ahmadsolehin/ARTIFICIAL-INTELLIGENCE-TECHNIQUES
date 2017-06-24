@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>statistics.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.math</a> &gt; <span class="el_source">statistics.java</span></div><h1>statistics.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.math;
+
+import org.jenetics.internal.util.require;
+
+/**
+ * Some statistical (special) functions.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.0
+ */
+public final class statistics {
+<span class="nc" id="L32">	private statistics() {require.noInstance();}</span>
+
+	/**
+	 * Return the minimum value of the given double array.
+	 *
+	 * @param values the double array.
+	 * @return the minimum value or {@link Double#NaN} if the given array is
+	 *         empty.
+	 * @throws NullPointerException if the given array is {@code null}.
+	 */
+	public static double min(final double[] values) {
+<span class="fc" id="L43">		double min = Double.NaN;</span>
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">		if (values.length &gt; 0) {</span>
+<span class="fc" id="L45">			min = values[0];</span>
+
+<span class="fc bfc" id="L47" title="All 2 branches covered.">			for (int i = values.length; --i &gt;= 1;) {</span>
+<span class="fc bfc" id="L48" title="All 2 branches covered.">				if (values[i] &lt; min) {</span>
+<span class="fc" id="L49">					min = values[i];</span>
+				}
+			}
+		}
+
+<span class="fc" id="L54">		return min;</span>
+	}
+
+	/**
+	 * Return the maximum value of the given double array.
+	 *
+	 * @param values the double array.
+	 * @return the maximum value or {@link Double#NaN} if the given array is
+	 *         empty.
+	 * @throws NullPointerException if the given array is {@code null}.
+	 */
+	public static double max(final double[] values) {
+<span class="nc" id="L66">		double max = Double.NaN;</span>
+<span class="nc bnc" id="L67" title="All 2 branches missed.">		if (values.length &gt; 0) {</span>
+<span class="nc" id="L68">			max = values[0];</span>
+
+<span class="nc bnc" id="L70" title="All 2 branches missed.">			for (int i = values.length; --i &gt;= 1;) {</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">				if (values[i] &gt; max) {</span>
+<span class="nc" id="L72">					max = values[i];</span>
+				}
+			}
+		}
+
+<span class="nc" id="L77">		return max;</span>
+	}
+
+	/**
+	 * Add the values of the given array.
+	 *
+	 * @param values the values to add.
+	 * @return the values sum.
+	 * @throws NullPointerException if the values are null;
+	 */
+	public static long sum(final long[] values) {
+<span class="nc" id="L88">		long sum = 0;</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">		for (int i = values.length; --i &gt;= 0;) {</span>
+<span class="nc" id="L90">			sum += values[i];</span>
+		}
+<span class="nc" id="L92">		return sum;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

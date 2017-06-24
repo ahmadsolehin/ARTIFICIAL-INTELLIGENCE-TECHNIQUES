@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>require.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.util</a> &gt; <span class="el_source">require.java</span></div><h1>require.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.util;
+
+import static java.lang.String.format;
+
+import java.util.function.Supplier;
+
+/**
+ * Some helper methods for creating hash codes and comparing values.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 1.6
+ */
+public final class require {
+<span class="nc" id="L34">	private require() { noInstance(); }</span>
+
+
+	/**
+	 * Calling the constructor of an {@code StaticObject} will always throw an
+	 * {@link AssertionError}.
+	 *
+	 * @throws AssertionError always.
+	 */
+	public static void noInstance() {
+<span class="fc" id="L44">		String message = &quot;Object instantiation is not allowed&quot;;</span>
+
+<span class="fc" id="L46">		final StackTraceElement[] trace = Thread.currentThread().getStackTrace();</span>
+<span class="pc bpc" id="L47" title="1 of 2 branches missed.">		if (trace.length &gt;= 3) {</span>
+<span class="fc" id="L48">			message = format(</span>
+				&quot;Instantiation of '%s' is not allowed.&quot;,
+<span class="fc" id="L50">				trace[2].getClassName()</span>
+			);
+		}
+
+<span class="fc" id="L54">		throw new AssertionError(message);</span>
+	}
+
+	/**
+	 * Check if the specified value is not negative.
+	 *
+	 * @param value the value to check.
+	 * @param message the exception message.
+	 * @return the given value.
+	 * @throws IllegalArgumentException if {@code value &lt; 0}.
+	 */
+	public static double nonNegative(final double value, final String message) {
+<span class="nc bnc" id="L66" title="All 2 branches missed.">		if (value &lt; 0) {</span>
+<span class="nc" id="L67">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L68">				&quot;%s must not negative: %f.&quot;, message, value</span>
+			));
+		}
+<span class="nc" id="L71">		return value;</span>
+	}
+
+	/**
+	 * Check if the specified value is not negative.
+	 *
+	 * @param value the value to check.
+	 * @return the given value.
+	 * @throws IllegalArgumentException if {@code value &lt; 0}.
+	 */
+	public static double nonNegative(final double value) {
+<span class="nc" id="L82">		return nonNegative(value, &quot;Value&quot;);</span>
+	}
+
+	/**
+	 * Check if the given integer is negative.
+	 *
+	 * @param length the value to check.
+	 * @throws NegativeArraySizeException if the given {@code length} is smaller
+	 * 		  than zero.
+	 */
+	public static int nonNegative(final int length) {
+<span class="pc bpc" id="L93" title="1 of 2 branches missed.">		if (length &lt; 0) {</span>
+<span class="nc" id="L94">			throw new NegativeArraySizeException(</span>
+				&quot;Length must be greater than zero, but was &quot; + length + &quot;. &quot;
+			);
+		}
+<span class="fc" id="L98">		return length;</span>
+	}
+
+	/**
+	 * Require the given {@code value} to be positive (&amp;gt: 0).
+	 * @param value the value to check
+	 * @return the given value
+	 * @throws IllegalArgumentException if the given {@code value} is smaller than
+	 *         or equal zero.
+	 */
+	public static int positive(final int value) {
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">		if (value &lt;= 0) {</span>
+<span class="nc" id="L110">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L111">				&quot;Value is not positive: %d&quot;, value</span>
+			));
+		}
+<span class="fc" id="L114">		return value;</span>
+	}
+
+	public static long positive(final long value) {
+<span class="pc bpc" id="L118" title="1 of 2 branches missed.">		if (value &lt;= 0) {</span>
+<span class="nc" id="L119">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L120">				&quot;Value is not positive: %d&quot;, value</span>
+			));
+		}
+<span class="fc" id="L123">		return value;</span>
+	}
+
+	/**
+	 * Check if the given double value is within the closed range {@code [0, 1]}.
+	 *
+	 * @param p the probability to check.
+	 * @return p if it is a valid probability.
+	 * @throws IllegalArgumentException if {@code p} is not a valid probability.
+	 */
+	public static double probability(final double p) {
+<span class="pc bpc" id="L134" title="2 of 4 branches missed.">		if (p &lt; 0.0 || p &gt; 1.0) {</span>
+<span class="nc" id="L135">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L136">				&quot;The given probability is not in the range [0, 1]: %f&quot;, p</span>
+			));
+		}
+<span class="fc" id="L139">		return p;</span>
+	}
+
+	public static &lt;T&gt; T safe(final Supplier&lt;T&gt; access) {
+		try {
+<span class="fc" id="L144">			return access.get();</span>
+<span class="nc" id="L145">		} catch (NullPointerException ignore) {</span>
+<span class="nc" id="L146">			return null;</span>
+		}
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

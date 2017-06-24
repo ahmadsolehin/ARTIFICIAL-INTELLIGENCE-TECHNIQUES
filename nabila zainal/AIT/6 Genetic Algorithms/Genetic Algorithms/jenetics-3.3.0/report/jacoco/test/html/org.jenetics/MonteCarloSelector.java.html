@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MonteCarloSelector.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">MonteCarloSelector.java</span></div><h1>MonteCarloSelector.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+
+import java.util.Random;
+
+import org.jenetics.internal.util.Equality;
+import org.jenetics.internal.util.Hash;
+
+import org.jenetics.util.RandomRegistry;
+
+/**
+ * The Monte Carlo selector selects the individuals from a given population
+ * randomly. This selector can be used to measure the performance of a other
+ * selectors. In general, the performance of a selector should be better than
+ * the selection performance of the Monte Carlo selector.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 2.0
+ */
+public final class MonteCarloSelector&lt;
+	G extends Gene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+	implements Selector&lt;G, C&gt;
+{
+
+<span class="fc" id="L49">	public MonteCarloSelector() {</span>
+<span class="fc" id="L50">	}</span>
+
+	@Override
+	public Population&lt;G, C&gt; select(
+		final Population&lt;G, C&gt; population,
+		final int count,
+		final Optimize opt
+	) {
+<span class="fc" id="L58">		requireNonNull(population, &quot;Population&quot;);</span>
+<span class="fc" id="L59">		requireNonNull(opt, &quot;Optimization&quot;);</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">		if (count &lt; 0) {</span>
+<span class="fc" id="L61">			throw new IllegalArgumentException(format(</span>
+				&quot;Selection count must be greater or equal then zero, but was %d.&quot;,
+<span class="fc" id="L63">				count</span>
+			));
+		}
+
+<span class="fc" id="L67">		final Population&lt;G, C&gt; selection = new Population&lt;&gt;(count);</span>
+<span class="fc bfc" id="L68" title="All 4 branches covered.">		if (count &gt; 0 &amp;&amp; !population.isEmpty()) {</span>
+<span class="fc" id="L69">			final Random random = RandomRegistry.getRandom();</span>
+<span class="fc" id="L70">			final int size = population.size();</span>
+<span class="fc bfc" id="L71" title="All 2 branches covered.">			for (int i = 0; i &lt; count; ++i) {</span>
+<span class="fc" id="L72">				final int pos = random.nextInt(size);</span>
+<span class="fc" id="L73">				selection.add(population.get(pos));</span>
+			}
+		}
+
+<span class="fc" id="L77">		return selection;</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L82">		return Hash.of(getClass()).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc" id="L87">		return Equality.ofType(this, obj);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L92">		return format(&quot;%s&quot;, getClass().getSimpleName());</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

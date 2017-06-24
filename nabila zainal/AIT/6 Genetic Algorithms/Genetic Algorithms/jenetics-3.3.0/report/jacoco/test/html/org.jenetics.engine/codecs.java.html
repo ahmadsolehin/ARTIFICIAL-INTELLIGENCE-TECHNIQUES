@@ -1,0 +1,645 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>codecs.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.engine</a> &gt; <span class="el_source">codecs.java</span></div><h1>codecs.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.engine;
+
+import static java.lang.reflect.Array.newInstance;
+import static java.util.Objects.requireNonNull;
+
+import java.awt.geom.AffineTransform;
+import java.util.Objects;
+import java.util.function.IntFunction;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
+
+import org.jenetics.internal.util.Equality;
+import org.jenetics.internal.util.require;
+
+import org.jenetics.AnyChromosome;
+import org.jenetics.AnyGene;
+import org.jenetics.BitChromosome;
+import org.jenetics.BitGene;
+import org.jenetics.DoubleChromosome;
+import org.jenetics.DoubleGene;
+import org.jenetics.EnumGene;
+import org.jenetics.Gene;
+import org.jenetics.Genotype;
+import org.jenetics.IntegerChromosome;
+import org.jenetics.IntegerGene;
+import org.jenetics.LongChromosome;
+import org.jenetics.LongGene;
+import org.jenetics.PermutationChromosome;
+import org.jenetics.util.DoubleRange;
+import org.jenetics.util.ISeq;
+import org.jenetics.util.IntRange;
+import org.jenetics.util.LongRange;
+
+/**
+ * This class contains factory methods for creating common  problem encodings.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.2
+ * @version 3.3
+ */
+public final class codecs {
+
+<span class="nc" id="L63">	private codecs() {require.noInstance();}</span>
+
+	/**
+	 * Return a scalar {@code Codec} for the given range.
+	 *
+	 * @param domain the domain of the returned {@code Codec}
+	 * @return a new scalar {@code Codec} with the given domain.
+	 * @throws NullPointerException if the given {@code domain} is {@code null}
+	 */
+	public static Codec&lt;Integer, IntegerGene&gt; ofScalar(final IntRange domain) {
+<span class="fc" id="L73">		requireNonNull(domain);</span>
+
+<span class="fc" id="L75">		return Codec.of(</span>
+<span class="fc" id="L76">			Genotype.of(IntegerChromosome.of(domain)),</span>
+			gt -&gt; gt.getChromosome().getGene().getAllele()
+		);
+	}
+
+	/**
+	 * Return a scalar {@code Codec} for the given range.
+	 *
+	 * @param domain the domain of the returned {@code Codec}
+	 * @return a new scalar {@code Codec} with the given domain.
+	 * @throws NullPointerException if the given {@code domain} is {@code null}
+	 */
+	public static Codec&lt;Long, LongGene&gt; ofScalar(final LongRange domain) {
+<span class="fc" id="L89">		requireNonNull(domain);</span>
+
+<span class="fc" id="L91">		return Codec.of(</span>
+<span class="fc" id="L92">			Genotype.of(LongChromosome.of(domain)),</span>
+			gt -&gt; gt.getChromosome().getGene().getAllele()
+		);
+	}
+
+	/**
+	 * Return a scalar {@code Codec} for the given range.
+	 *
+	 * @param domain the domain of the returned {@code Codec}
+	 * @return a new scalar {@code Codec} with the given domain.
+	 * @throws NullPointerException if the given {@code domain} is {@code null}
+	 */
+	public static Codec&lt;Double, DoubleGene&gt; ofScalar(final DoubleRange domain) {
+<span class="fc" id="L105">		requireNonNull(domain);</span>
+
+<span class="fc" id="L107">		return Codec.of(</span>
+<span class="fc" id="L108">			Genotype.of(DoubleChromosome.of(domain)),</span>
+			gt -&gt; gt.getChromosome().getGene().getAllele()
+		);
+	}
+
+	/**
+	 * Return a scala {@code Codec} with the given allele {@link Supplier} and
+	 * allele {@code validator}. The {@code supplier} is responsible for
+	 * creating new random alleles, and the {@code validator} can verify it.
+	 * &lt;p&gt;
+	 * The following example shows a codec which creates and verifies
+	 * {@code BigInteger} objects.
+	 * &lt;pre&gt;{@code
+	 * final Codec&lt;BigInteger, AnyGene&lt;BigInteger&gt;&gt; codec = codecs.of(
+	 *     // Create new random 'BigInteger' object.
+	 *     () -&gt; {
+	 *         final byte[] data = new byte[100];
+	 *         RandomRegistry.getRandom().nextBytes(data);
+	 *         return new BigInteger(data);
+	 *     },
+	 *     // Verify that bit 7 is set. (For illustration purpose.)
+	 *     bi -&gt; bi.testBit(7)
+	 * );
+	 * }&lt;/pre&gt;
+	 *
+	 * @see AnyGene#of(Supplier, Predicate)
+	 * @see AnyChromosome#of(Supplier, Predicate)
+	 *
+	 * @param &lt;A&gt; the allele type
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @param validator the validator used for validating the created gene. This
+	 *        predicate is used in the {@link AnyGene#isValid()} method.
+	 * @return a new {@code Codec} with the given parameters
+	 * @throws NullPointerException if one of the parameters is {@code null}
+	 */
+	public static &lt;A&gt; Codec&lt;A, AnyGene&lt;A&gt;&gt; ofScalar(
+		final Supplier&lt;? extends A&gt; supplier,
+		final Predicate&lt;? super A&gt; validator
+	) {
+<span class="fc" id="L148">		return Codec.of(</span>
+<span class="fc" id="L149">			Genotype.of(AnyChromosome.of(supplier, validator)),</span>
+			gt -&gt; gt.getGene().getAllele()
+		);
+	}
+
+	/**
+	 * Return a scala {@code Codec} with the given allele {@link Supplier} and
+	 * allele {@code validator}. The {@code supplier} is responsible for
+	 * creating new random alleles.
+	 *
+	 * @see #ofScalar(Supplier, Predicate)
+	 * @see AnyGene#of(Supplier)
+	 * @see AnyChromosome#of(Supplier)
+	 *
+	 * @param &lt;A&gt; the allele type
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @return a new {@code Codec} with the given parameters
+	 * @throws NullPointerException if the parameter is {@code null}
+	 */
+	public static &lt;A&gt; Codec&lt;A, AnyGene&lt;A&gt;&gt; ofScalar(
+		final Supplier&lt;? extends A&gt; supplier
+	) {
+<span class="fc" id="L172">		return Codec.of(</span>
+<span class="fc" id="L173">			Genotype.of(AnyChromosome.of(supplier)),</span>
+			gt -&gt; gt.getGene().getAllele()
+		);
+	}
+
+	/**
+	 * Return a vector {@code Codec} for the given range. All vector values
+	 * are restricted by the same domain.
+	 *
+	 * @param domain the domain of the vector values
+	 * @param length the vector length
+	 * @return a new vector {@code Codec}
+	 * @throws NullPointerException if the given {@code domain} is {@code null}
+	 * @throws IllegalArgumentException if the {@code length} is smaller than
+	 *         one.
+	 */
+	public static Codec&lt;int[], IntegerGene&gt; ofVector(
+		final IntRange domain,
+		final int length
+	) {
+<span class="fc" id="L193">		requireNonNull(domain);</span>
+<span class="fc" id="L194">		require.positive(length);</span>
+
+<span class="fc" id="L196">		return Codec.of(</span>
+<span class="fc" id="L197">			Genotype.of(IntegerChromosome.of(domain, length)),</span>
+			gt -&gt; ((IntegerChromosome)gt.getChromosome()).toArray()
+		);
+	}
+
+	/**
+	 * Return a vector {@code Codec} for the given range. All vector values
+	 * are restricted by the same domain.
+	 *
+	 * @param domain the domain of the vector values
+	 * @param length the vector length
+	 * @return a new vector {@code Codec}
+	 * @throws NullPointerException if the given {@code domain} is {@code null}
+	 * @throws IllegalArgumentException if the {@code length} is smaller than
+	 *         one.
+	 */
+	public static Codec&lt;long[], LongGene&gt; ofVector(
+		final LongRange domain,
+		final int length
+	) {
+<span class="fc" id="L217">		requireNonNull(domain);</span>
+<span class="fc" id="L218">		require.positive(length);</span>
+
+<span class="fc" id="L220">		return Codec.of(</span>
+<span class="fc" id="L221">			Genotype.of(LongChromosome.of(domain, length)),</span>
+			gt -&gt; ((LongChromosome)gt.getChromosome()).toArray()
+		);
+	}
+
+	/**
+	 * Return a vector {@code Codec} for the given range. All vector values
+	 * are restricted by the same domain.
+	 *
+	 * @param domain the domain of the vector values
+	 * @param length the vector length
+	 * @return a new vector {@code Codec}
+	 * @throws NullPointerException if the given {@code domain} is {@code null}
+	 * @throws IllegalArgumentException if the {@code length} is smaller than
+	 *         one.
+	 */
+	public static Codec&lt;double[], DoubleGene&gt; ofVector(
+		final DoubleRange domain,
+		final int length
+	) {
+<span class="fc" id="L241">		requireNonNull(domain);</span>
+<span class="fc" id="L242">		require.positive(length);</span>
+
+<span class="fc" id="L244">		return Codec.of(</span>
+<span class="fc" id="L245">			Genotype.of(DoubleChromosome.of(domain, length)),</span>
+			gt -&gt; ((DoubleChromosome)gt.getChromosome()).toArray()
+		);
+	}
+
+	/**
+	 * Create a vector {@code Codec} for the given ranges. Each vector element
+	 * might have a different domain. The vector length is equal to the number
+	 * of domains.
+	 *
+	 * @param domains the domain ranges
+	 * @return a new vector {@code Codec}
+	 * @throws NullPointerException if one of the arguments is {@code null}
+	 * @throws IllegalArgumentException if the {@code domains} array is empty
+	 */
+	public static Codec&lt;int[], IntegerGene&gt; ofVector(final IntRange... domains) {
+<span class="pc bpc" id="L261" title="1 of 2 branches missed.">		if (domains.length == 0) {</span>
+<span class="nc" id="L262">			throw new IllegalArgumentException(&quot;Domains must not be empty.&quot;);</span>
+		}
+
+<span class="fc" id="L265">		final ISeq&lt;IntegerChromosome&gt; chromosomes = Stream.of(domains)</span>
+<span class="fc" id="L266">			.map(Objects::requireNonNull)</span>
+<span class="fc" id="L267">			.map(IntegerGene::of)</span>
+<span class="fc" id="L268">			.map(IntegerChromosome::of)</span>
+<span class="fc" id="L269">			.collect(ISeq.toISeq());</span>
+
+<span class="fc" id="L271">		return Codec.of(</span>
+<span class="fc" id="L272">			Genotype.of(chromosomes),</span>
+			gt -&gt; {
+				final int[] args = new int[chromosomes.length()];
+				for (int i = chromosomes.length(); --i &gt;= 0;) {
+					args[i] = gt.getChromosome(i).getGene().intValue();
+				}
+				return args;
+			}
+		);
+	}
+
+	/**
+	 * Create a vector {@code Codec} for the given ranges. Each vector element
+	 * might have a different domain. The vector length is equal to the number
+	 * of domains.
+	 *
+	 * @param domains the domain ranges
+	 * @return a new vector {@code Codec}
+	 * @throws NullPointerException if one of the arguments is {@code null}
+	 * @throws IllegalArgumentException if the {@code domains} array is empty
+	 */
+	public static Codec&lt;long[], LongGene&gt; ofVector(final LongRange... domains) {
+<span class="pc bpc" id="L294" title="1 of 2 branches missed.">		if (domains.length == 0) {</span>
+<span class="nc" id="L295">			throw new IllegalArgumentException(&quot;Domains must not be empty.&quot;);</span>
+		}
+
+<span class="fc" id="L298">		final ISeq&lt;LongChromosome&gt; chromosomes = Stream.of(domains)</span>
+<span class="fc" id="L299">			.map(Objects::requireNonNull)</span>
+<span class="fc" id="L300">			.map(LongGene::of)</span>
+<span class="fc" id="L301">			.map(LongChromosome::of)</span>
+<span class="fc" id="L302">			.collect(ISeq.toISeq());</span>
+
+<span class="fc" id="L304">		return Codec.of(</span>
+<span class="fc" id="L305">			Genotype.of(chromosomes),</span>
+			gt -&gt; {
+				final long[] args = new long[chromosomes.length()];
+				for (int i = chromosomes.length(); --i &gt;= 0;) {
+					args[i] = gt.getChromosome(i).getGene().longValue();
+				}
+				return args;
+			}
+		);
+	}
+
+	/**
+	 * Create a vector {@code Codec} for the given ranges. Each vector element
+	 * might have a different domain. The vector length is equal to the number
+	 * of domains.
+	 *
+	 * @param domains the domain ranges
+	 * @return a new vector {@code Codec}
+	 * @throws NullPointerException if one of the arguments is {@code null}
+	 * @throws IllegalArgumentException if the {@code domains} array is empty
+	 */
+	public static Codec&lt;double[], DoubleGene&gt; ofVector(
+		final DoubleRange... domains
+	) {
+<span class="pc bpc" id="L329" title="1 of 2 branches missed.">		if (domains.length == 0) {</span>
+<span class="nc" id="L330">			throw new IllegalArgumentException(&quot;Domains must not be empty.&quot;);</span>
+		}
+
+<span class="fc" id="L333">		final ISeq&lt;DoubleChromosome&gt; chromosomes = Stream.of(domains)</span>
+<span class="fc" id="L334">			.map(Objects::requireNonNull)</span>
+<span class="fc" id="L335">			.map(DoubleGene::of)</span>
+<span class="fc" id="L336">			.map(DoubleChromosome::of)</span>
+<span class="fc" id="L337">			.collect(ISeq.toISeq());</span>
+
+<span class="fc" id="L339">		return Codec.of(</span>
+<span class="fc" id="L340">			Genotype.of(chromosomes),</span>
+			gt -&gt; {
+				final double[] args = new double[chromosomes.length()];
+				for (int i = chromosomes.length(); --i &gt;= 0;) {
+					args[i] = gt.getChromosome(i).getGene().doubleValue();
+				}
+				return args;
+			}
+		);
+	}
+
+	/**
+	 * Return a scala {@code Codec} with the given allele {@link Supplier},
+	 * allele {@code validator} and {@code Chromosome} length. The
+	 * {@code supplier} is responsible for creating new random alleles, and the
+	 * {@code validator} can verify it.
+	 * &lt;p&gt;
+	 * The following example shows a codec which creates and verifies
+	 * {@code BigInteger} object arrays.
+	 * &lt;pre&gt;{@code
+	 * final Codec&lt;BigInteger[], AnyGene&lt;BigInteger&gt;&gt; codec = codecs.of(
+	 *     // Create new random 'BigInteger' object.
+	 *     () -&gt; {
+	 *         final byte[] data = new byte[100];
+	 *         RandomRegistry.getRandom().nextBytes(data);
+	 *         return new BigInteger(data);
+	 *     },
+	 *     // The array generator.
+	 *     BigInteger[]::new,
+	 *     // Verify that bit 7 is set. (For illustration purpose.)
+	 *     bi -&gt; bi.testBit(7),
+	 *     // The 'Chromosome' length.
+	 *     123
+	 * );
+	 * }&lt;/pre&gt;
+	 *
+	 * @see AnyChromosome#of(Supplier, Predicate, Predicate, int)
+	 *
+	 * @param &lt;A&gt; the allele type
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @param generator the array generator used for generating arrays of type
+	 *        {@code A}
+	 * @param alleleValidator the validator used for validating the created gene.
+	 *        This predicate is used in the {@link AnyGene#isValid()} method.
+	 * @param alleleSeqValidator the validator used for validating the created
+	 *        chromosome. This predicate is used in the
+	 *        {@link AnyChromosome#isValid()} method.
+	 * @param length the vector length
+	 * @return a new {@code Codec} with the given parameters
+	 * @throws NullPointerException if one of the parameters is {@code null}
+	 * @throws IllegalArgumentException if the length of the vector is smaller
+	 *         than one.
+	 */
+	public static &lt;A&gt; Codec&lt;A[], AnyGene&lt;A&gt;&gt; ofVector(
+		final Supplier&lt;? extends A&gt; supplier,
+		final IntFunction&lt;A[]&gt; generator,
+		final Predicate&lt;? super A&gt; alleleValidator,
+		final Predicate&lt;? super ISeq&lt;? super A&gt;&gt; alleleSeqValidator,
+		final int length
+	) {
+<span class="fc" id="L401">		requireNonNull(supplier);</span>
+<span class="fc" id="L402">		requireNonNull(generator);</span>
+<span class="fc" id="L403">		requireNonNull(alleleSeqValidator);</span>
+<span class="fc" id="L404">		requireNonNull(alleleSeqValidator);</span>
+<span class="fc" id="L405">		require.positive(length);</span>
+
+<span class="fc" id="L407">		return Codec.of(</span>
+<span class="fc" id="L408">			Genotype.of(AnyChromosome</span>
+<span class="fc" id="L409">				.of(supplier, alleleValidator, alleleSeqValidator, length)),</span>
+			gt -&gt; gt.getChromosome().toSeq().stream()
+				.map(Gene::getAllele)
+				.toArray(generator)
+		);
+	}
+
+	/**
+	 * Return a scala {@code Codec} with the given allele {@link Supplier},
+	 * allele {@code validator} and {@code Chromosome} length. The
+	 * {@code supplier} is responsible for creating new random alleles, and the
+	 * {@code validator} can verify it.
+	 *
+	 * @param &lt;A&gt; the allele type
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @param generator the array generator used for generating arrays of type
+	 *        {@code A}
+	 * @param validator the validator used for validating the created gene. This
+	 *        predicate is used in the {@link AnyGene#isValid()} method.
+	 * @param length the vector length
+	 * @return a new {@code Codec} with the given parameters
+	 * @throws NullPointerException if one of the parameters is {@code null}
+	 * @throws IllegalArgumentException if the length of the vector is smaller
+	 *         than one.
+	 */
+	public static &lt;A&gt; Codec&lt;A[], AnyGene&lt;A&gt;&gt; ofVector(
+		final Supplier&lt;? extends A&gt; supplier,
+		final IntFunction&lt;A[]&gt; generator,
+		final Predicate&lt;? super A&gt; validator,
+		final int length
+	) {
+<span class="fc" id="L441">		return ofVector(supplier, generator, validator, Equality.TRUE, length);</span>
+	}
+
+	/**
+	 * Return a scala {@code Codec} with the given allele {@link Supplier} and
+	 * {@code Chromosome} length. The {@code supplier} is responsible for
+	 * creating new random alleles.
+	 *
+	 * @param &lt;A&gt; the allele type
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @param generator the array generator used for generating arrays of type
+	 *        {@code A}
+	 * @param length the vector length
+	 * @return a new {@code Codec} with the given parameters
+	 * @throws NullPointerException if one of the parameters is {@code null}
+	 * @throws IllegalArgumentException if the length of the vector is smaller
+	 *         than one.
+	 */
+	public static &lt;A&gt; Codec&lt;A[], AnyGene&lt;A&gt;&gt; ofVector(
+		final Supplier&lt;? extends A&gt; supplier,
+		final IntFunction&lt;A[]&gt; generator,
+		final int length
+	) {
+<span class="nc" id="L465">		return ofVector(supplier, generator, Equality.TRUE, length);</span>
+	}
+
+	/**
+	 * Create a permutation {@code Codec} with the given alleles.
+	 *
+	 * @param alleles the alleles of the permutation
+	 * @param &lt;T&gt; the allele type
+	 * @return a new permutation {@code Codec}
+	 * @throws IllegalArgumentException if the given allele array is empty
+	 * @throws NullPointerException if one of the alleles is {@code null}
+	 */
+	@SafeVarargs
+	public static &lt;T&gt; Codec&lt;T[], EnumGene&lt;T&gt;&gt; ofPermutation(final T... alleles) {
+<span class="pc bpc" id="L479" title="1 of 2 branches missed.">		if (alleles.length == 0) {</span>
+<span class="nc" id="L480">			throw new IllegalArgumentException(&quot;Empty alleles are not allowed.&quot;);</span>
+		}
+
+<span class="fc" id="L483">		final IntFunction&lt;T[]&gt; newArray = length -&gt; {</span>
+			@SuppressWarnings(&quot;unchecked&quot;)
+			final T[] values = (T[])newInstance(alleles[0].getClass(), length);
+			return values;
+		};
+
+<span class="fc" id="L489">		return Codec.of(</span>
+<span class="fc" id="L490">			Genotype.of(PermutationChromosome.of(alleles)),</span>
+			gt -&gt; gt.getChromosome().toSeq().stream()
+				.map(EnumGene::getAllele)
+				.toArray(newArray)
+		);
+	}
+
+	/**
+	 * Create a permutation {@code Codec} of integer in the range
+	 * {@code [0, length)}.
+	 *
+	 * @param length the number of permutation elements
+	 * @return a permutation {@code Codec} of integers
+	 * @throws IllegalArgumentException if the {@code length} is smaller than
+	 *         one.
+	 */
+	public static Codec&lt;int[], EnumGene&lt;Integer&gt;&gt; ofPermutation(final int length) {
+<span class="nc" id="L507">		require.positive(length);</span>
+
+<span class="nc" id="L509">		return Codec.of(</span>
+<span class="nc" id="L510">			Genotype.of(PermutationChromosome.ofInteger(length)),</span>
+			gt -&gt; gt.getChromosome().toSeq().stream()
+				.mapToInt(EnumGene&lt;Integer&gt;::getAllele)
+				.toArray()
+		);
+	}
+
+	/**
+	 * The subset {@code Codec} can be used for problems where it is required to
+	 * find the best subset from given basic set. A typical usage example of the
+	 * returned {@code Codec} is the Knapsack problem.
+	 * &lt;p&gt;
+	 * The following code snippet shows a simplified variation of the Knapsack
+	 * problem.
+	 * &lt;pre&gt;{@code
+	 * public final class Main {
+	 *     // The basic set from where to choose an 'optimal' subset.
+	 *     private final static ISeq&lt;Integer&gt; SET =
+	 *         ISeq.of(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+	 *
+	 *     // Fitness function directly takes an 'int' value.
+	 *     private static int fitness(final ISeq&lt;Integer&gt; subset) {
+	 *         assert(subset.size() &lt;= SET.size());
+	 *         final int size = subset.stream()
+	 *             .collect(Collectors.summingInt(Integer::intValue));
+	 *         return size &lt;= 20 ? size : 0;
+	 *     }
+	 *
+	 *     public static void main(final String[] args) {
+	 *         final Engine&lt;BitGene, Double&gt; engine = Engine
+	 *             .builder(Main::fitness, codec.ofSubSet(SET))
+	 *             .build();
+	 *         ...
+	 *     }
+	 * }
+	 * }&lt;/pre&gt;
+	 *
+	 * @param &lt;T&gt; the element type of the basic set
+	 * @param basicSet the basic set, from where to choose the &lt;i&gt;optimal&lt;/i&gt;
+	 *        subset.
+	 * @return a new codec which can be used for modelling &lt;i&gt;subset&lt;/i&gt;
+	 *         problems.
+	 * @throws NullPointerException if the given {@code basicSet} is
+	 *         {@code null}; {@code null} elements are allowed.
+	 * @throws IllegalArgumentException if the {@code basicSet} size is smaller
+	 *         than one.
+	 */
+	public static &lt;T&gt; Codec&lt;ISeq&lt;T&gt;, BitGene&gt; ofSubSet(final ISeq&lt;T&gt; basicSet) {
+<span class="nc" id="L558">		requireNonNull(basicSet);</span>
+<span class="nc" id="L559">		require.positive(basicSet.length());</span>
+
+<span class="nc" id="L561">		return Codec.of(</span>
+<span class="nc" id="L562">			Genotype.of(BitChromosome.of(basicSet.length())),</span>
+			gt -&gt; ((BitChromosome)gt.getChromosome()).ones()
+				.mapToObj(basicSet::get)
+				.collect(ISeq.toISeq())
+		);
+	}
+
+	// https://trac.osgeo.org/postgis/wiki/DevWikiAffineParameters
+
+	/**
+	 * Creates a codec for a 2-dimensional affine transformation. The composed
+	 * order of the transformation is: &lt;i&gt;R&amp;bull;Sc&amp;bull;Sh&amp;bull;T&lt;/i&gt;
+	 *
+	 * @param sx the scale factor range in x direction
+	 * @param sy the scale factor range in y direction
+	 * @param tx the translation range in x direction
+	 * @param ty the translation range in y direction
+	 * @param th the rotation range (in radians)
+	 * @param kx the shear range in x direction
+	 * @param ky the shear range in x direction
+	 * @return the affine transformation codec
+	 * @throws NullPointerException if one of the arguments is {@code null}
+	 */
+	static Codec&lt;AffineTransform, DoubleGene&gt; ofAffineTransform(
+		final DoubleRange sx, final DoubleRange sy,
+		final DoubleRange tx, final DoubleRange ty,
+		final DoubleRange th,
+		final DoubleRange kx, final DoubleRange ky
+	) {
+<span class="fc" id="L591">		return Codec.of(</span>
+<span class="fc" id="L592">			Genotype.of(</span>
+				// Scale
+<span class="fc" id="L594">				DoubleChromosome.of(sx), DoubleChromosome.of(sy),</span>
+				// Translation
+<span class="fc" id="L596">				DoubleChromosome.of(tx), DoubleChromosome.of(ty),</span>
+				// Rotation
+<span class="fc" id="L598">				DoubleChromosome.of(th),</span>
+				// Shear
+<span class="fc" id="L600">				DoubleChromosome.of(kx), DoubleChromosome.of(ky)</span>
+			),
+			gt -&gt; {
+				final AffineTransform at = new AffineTransform();
+
+				at.translate(
+					gt.getChromosome(2).getGene().doubleValue(),
+					gt.getChromosome(3).getGene().doubleValue()
+				);
+				at.shear(
+					gt.getChromosome(5).getGene().doubleValue(),
+					gt.getChromosome(6).getGene().doubleValue()
+				);
+				at.scale(
+					gt.getChromosome(0).getGene().doubleValue(),
+					gt.getChromosome(1).getGene().doubleValue()
+				);
+				at.rotate(gt.getChromosome(4).getGene().doubleValue());
+
+				return at;
+			}
+		);
+	}
+
+	/**
+	 * Creates a codec for a 2-dimensional affine transformation. The composed
+	 * order of the transformation is: &lt;i&gt;R&amp;bull;Sc&amp;bull;Sh&amp;bull;T&lt;/i&gt;
+	 *
+	 * @param s the scale factor range in x and y direction
+	 * @param t the translation range in x and y direction
+	 * @param th the rotation angle range
+	 * @param k the shear range in x and y direction
+	 * @return the affine transformation codec
+	 * @throws NullPointerException if one of the arguments is {@code null}
+	 */
+	static Codec&lt;AffineTransform, DoubleGene&gt; ofAffineTransform(
+		final DoubleRange s,
+		final DoubleRange t,
+		final DoubleRange th,
+		final DoubleRange k
+	) {
+<span class="nc" id="L641">		return ofAffineTransform(s, s, t, t, th, k, k);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

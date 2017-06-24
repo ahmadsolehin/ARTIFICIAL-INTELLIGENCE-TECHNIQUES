@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>IndexSorter.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.util</a> &gt; <span class="el_source">IndexSorter.java</span></div><h1>IndexSorter.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.util;
+
+import static org.jenetics.internal.util.array.swap;
+
+/**
+ * Implementations of this class doesn't sort the given array directly, instead
+ * an index lookup array is returned which allows to access the array in
+ * an sorted order. The arrays are sorted in descending order.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.0
+ * @version 3.0
+ */
+<span class="fc" id="L33">public abstract class IndexSorter {</span>
+
+	// This value has been chosen after JMH benchmarking.
+//	Benchmark                                   Mode  Samples      Score  Score error  Units
+//	o.j.i.u.IndexSorterPerf.heapSort160         avgt       14   5560.895       80.158  ns/op
+//	o.j.i.u.IndexSorterPerf.heapSort250         avgt       14   9516.441      119.648  ns/op
+//	o.j.i.u.IndexSorterPerf.heapSort320         avgt       14  12722.461      103.487  ns/op
+//	o.j.i.u.IndexSorterPerf.heapSort80          avgt       14   2473.058       27.884  ns/op
+//	o.j.i.u.IndexSorterPerf.insertionSort160    avgt       14  10877.158      550.338  ns/op
+//	o.j.i.u.IndexSorterPerf.insertionSort250    avgt       14  25731.100      925.196  ns/op
+//	o.j.i.u.IndexSorterPerf.insertionSort320    avgt       14  41864.108     1801.247  ns/op
+//	o.j.i.u.IndexSorterPerf.insertionSort80     avgt       14   2643.726      165.315  ns/op
+	//private static final int INSERTION_SORT_THRESHOLD = 80;
+	private static final int INSERTION_SORT_THRESHOLD = 80;
+
+<span class="fc" id="L48">	static final IndexSorter INSERTION_SORTER = new InsertionSorter();</span>
+<span class="fc" id="L49">	static final IndexSorter HEAP_SORTER = new HeapSorter();</span>
+
+	/**
+	 * This method must be implemented by the different sorting algorithms.
+	 *
+	 * @param array the array to sort
+	 * @param indexes the index lookup array -
+	 *        &amp;forall; i &amp;isin; [0, N): index[i] = i
+	 * @return the given {@code indexes} which is now &quot;sorted&quot;
+	 */
+	abstract int[] sort(final double[] array, final int[] indexes);
+
+	/**
+	 * Return an new sorted index lookup array. The given array is not touched.
+	 *
+	 * @param array the array to sort.
+	 * @return the index lookup array
+	 */
+	public static int[] sort(final double[] array) {
+<span class="fc bfc" id="L68" title="All 2 branches covered.">		final IndexSorter sorter = array.length &lt; INSERTION_SORT_THRESHOLD</span>
+			? INSERTION_SORTER
+			: HEAP_SORTER;
+
+<span class="fc" id="L72">		return sorter.sort(array, indexes(array.length));</span>
+	}
+
+	static int[] indexes(final int length) {
+<span class="fc" id="L76">		final int[] indexes = new int[length];</span>
+<span class="fc bfc" id="L77" title="All 2 branches covered.">		for (int i = length; --i &gt;= 0;) {</span>
+<span class="fc" id="L78">			indexes[i] = i;</span>
+		}
+<span class="fc" id="L80">		return indexes;</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L85">		return getClass().getSimpleName();</span>
+	}
+
+}
+
+/**
+ * Heap sort implementation.
+ */
+<span class="fc" id="L93">final class HeapSorter extends IndexSorter {</span>
+
+	@Override
+	int[] sort(final double[] array, final int[] indexes) {
+		// Heapify
+<span class="fc bfc" id="L98" title="All 2 branches covered.">		for (int k = array.length/2; k &gt;= 0; --k) {</span>
+<span class="fc" id="L99">			sink(array, indexes, k, array.length);</span>
+		}
+
+		// Sort down.
+<span class="fc bfc" id="L103" title="All 2 branches covered.">		for (int i = array.length; --i &gt;= 1;) {</span>
+<span class="fc" id="L104">			swap(indexes, 0, i);</span>
+<span class="fc" id="L105">			sink(array, indexes, 0, i);</span>
+		}
+
+<span class="fc" id="L108">		return indexes;</span>
+	}
+
+	private static void sink(
+		final double[] array,
+		final int[] indexes,
+		final int start,
+		final int end
+	) {
+<span class="fc" id="L117">		int m = start;</span>
+<span class="fc bfc" id="L118" title="All 2 branches covered.">		while (2*m &lt; end) {</span>
+<span class="fc" id="L119">			int j = 2*m;</span>
+<span class="fc bfc" id="L120" title="All 4 branches covered.">			if (j &lt; end - 1 &amp;&amp; array[indexes[j]] &gt; array[indexes[j + 1]]) ++j;</span>
+<span class="fc bfc" id="L121" title="All 2 branches covered.">			if (array[indexes[m]] &lt;= array[indexes[j]]) break;</span>
+<span class="fc" id="L122">			swap(indexes, m, j);</span>
+<span class="fc" id="L123">			m = j;</span>
+<span class="fc" id="L124">		}</span>
+<span class="fc" id="L125">	}</span>
+
+}
+
+/**
+ * Insertion sort implementation.
+ */
+<span class="fc" id="L132">final class InsertionSorter extends IndexSorter {</span>
+
+	@Override
+	int[] sort(final double[] array, final int[] indexes) {
+<span class="fc bfc" id="L136" title="All 2 branches covered.">		for (int i = 1, n = array.length; i &lt; n; ++i) {</span>
+<span class="fc" id="L137">			int j = i;</span>
+<span class="fc bfc" id="L138" title="All 2 branches covered.">			while (j &gt; 0) {</span>
+<span class="fc bfc" id="L139" title="All 2 branches covered.">				if (array[indexes[j - 1]] &lt; array[indexes[j]]) {</span>
+<span class="fc" id="L140">					swap(indexes, j - 1, j);</span>
+				} else {
+					break;
+				}
+<span class="fc" id="L144">				--j;</span>
+			}
+		}
+
+<span class="fc" id="L148">		return indexes;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

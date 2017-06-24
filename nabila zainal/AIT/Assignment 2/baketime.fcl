@@ -1,0 +1,65 @@
+FUNCTION_BLOCK baketime
+
+VAR_INPUT 
+	size : REAL;
+	temp : REAL;
+	batch : REAL;
+END_VAR 
+
+VAR_OUTPUT				
+	time : REAL;
+END_VAR
+
+FUZZIFY size	
+	TERM cup := (0,1) (5,1) (25,0);	//refer to your graph bel
+	TERM small:= (5,0) (25,1) (45,0);
+	TERM medium:= (30,0) (55,1) (70,0);
+	TERM large := (55,0) (70,1) (85,0);
+	TERM vlarge := (70,0) (90,1) (100,1);
+END_FUZZIFY
+
+FUZZIFY temp	
+	TERM low := (0,1) (25,1) (45,0);
+	TERM medium:= (25,0) (45,1) (60,1) (70,0);
+	TERM hot:= (60,0) (70,1) (100,1);
+END_FUZZIFY
+
+FUZZIFY batch	
+	TERM small := (0,1) (35,1) (45,0);
+	TERM medium:= (35,0) (55,1) (80,0);
+	TERM large:= (65,0) (80,1) (100,1);
+END_FUZZIFY
+
+DEFUZZIFY time
+	TERM less:= (0,1) (45,0) (65,0);
+	TERM long:= (45,0) (65,1) (100,1);
+	METHOD : COG;
+	DEFAULT := 0;		
+END_DEFUZZIFY
+
+RULEBLOCK rules 
+	AND : MIN;			// Use 'min' for AND (also OR for 'max')
+	ACT : MIN;			// Use 'min' activation method
+	ACCU : MAX;			// Use 'max' accumulation method
+
+	RULE 1 : IF size IS cup AND temp IS low AND batch IS large THEN time IS long;
+	RULE 2 : IF size IS cup AND temp IS hot AND batch IS large THEN time IS less;
+	RULE 3 : IF size IS small AND temp IS low AND batch IS small THEN time IS long;
+	RULE 4 : IF size IS large AND temp IS low AND batch IS small THEN time IS less;	
+END_RULEBLOCK
+
+END_FUNCTION_BLOCK
+
+/* http://jfuzzylogic.sourceforge.net/html/manual.html refer here for coding
+1 from folder, hold SHIFT, right click on folder, click OPEN in command here
+2 open cmd
+3 insert java 
+4 java -jar file.exe file.fcl
+5 java -jar file.exe -e file.fcl 81 23		//evaluate
+*/
+
+
+
+
+
+

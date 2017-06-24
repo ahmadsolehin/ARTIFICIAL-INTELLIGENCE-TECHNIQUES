@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>arithmetic.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.math</a> &gt; <span class="el_source">arithmetic.java</span></div><h1>arithmetic.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.math;
+
+import org.jenetics.internal.util.require;
+
+/**
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.0
+ * @version 3.0
+ */
+public final class arithmetic {
+<span class="nc" id="L30">	private arithmetic() {require.noInstance();}</span>
+
+
+	/**
+	 * Normalize the given double array, so that it sum to one. The
+	 * normalization is performed in place and the same {@code values} are
+	 * returned.
+	 *
+	 * @param values the values to normalize.
+	 * @return the {@code values} array.
+	 * @throws NullPointerException if the given double array is {@code null}.
+	 */
+	public static double[] normalize(final double[] values) {
+<span class="fc" id="L43">		final double sum = 1.0/DoubleAdder.sum(values);</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">		for (int i = values.length; --i &gt;= 0;) {</span>
+<span class="fc" id="L45">			values[i] = values[i]*sum;</span>
+		}
+
+<span class="fc" id="L48">		return values;</span>
+	}
+
+	public static double[] normalize(final long[] values) {
+<span class="nc" id="L52">		final double[] result = new double[values.length];</span>
+<span class="nc" id="L53">		final double sum = 1.0/statistics.sum(values);</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">		for (int i = values.length; --i &gt;= 0;) {</span>
+<span class="nc" id="L55">			result[i] = values[i]*sum;</span>
+		}
+
+<span class="nc" id="L58">		return result;</span>
+	}
+
+	/**
+	 * Component wise division of the given double array.
+	 *
+	 * @param values the double values to divide.
+	 * @param divisor the divisor.
+	 * @throws NullPointerException if the given double array is {@code null}.
+	 */
+	public static void divide(final double[] values, final double divisor) {
+<span class="nc bnc" id="L69" title="All 2 branches missed.">		for (int i = values.length; --i &gt;= 0;) {</span>
+<span class="nc" id="L70">			values[i] /= divisor;</span>
+		}
+<span class="nc" id="L72">	}</span>
+
+	/**
+	 * Binary exponentiation algorithm.
+	 *
+	 * @param b the base number.
+	 * @param e the exponent.
+	 * @return {@code b^e}.
+	 */
+	public static long pow(final long b, final long e) {
+<span class="fc" id="L82">		long base = b;</span>
+<span class="fc" id="L83">		long exp = e;</span>
+<span class="fc" id="L84">		long result = 1;</span>
+
+<span class="fc bfc" id="L86" title="All 2 branches covered.">		while (exp != 0) {</span>
+<span class="fc bfc" id="L87" title="All 2 branches covered.">			if ((exp &amp; 1) != 0) {</span>
+<span class="fc" id="L88">				result *= base;</span>
+			}
+<span class="fc" id="L90">			exp &gt;&gt;&gt;= 1;</span>
+<span class="fc" id="L91">			base *= base;</span>
+		}
+
+<span class="fc" id="L94">		return result;</span>
+	}
+
+	static boolean isMultiplicationSave(final int a, final int b) {
+<span class="fc" id="L98">		final long m = (long)a*(long)b;</span>
+<span class="pc bpc" id="L99" title="1 of 2 branches missed.">		return (int)m == m;</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

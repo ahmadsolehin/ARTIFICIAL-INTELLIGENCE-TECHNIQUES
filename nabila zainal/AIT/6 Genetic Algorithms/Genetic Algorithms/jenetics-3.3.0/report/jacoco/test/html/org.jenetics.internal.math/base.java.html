@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>base.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.math</a> &gt; <span class="el_source">base.java</span></div><h1>base.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.math;
+
+import static java.lang.Double.doubleToLongBits;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+
+import java.util.Random;
+
+import org.jenetics.internal.util.require;
+
+import org.jenetics.util.RandomRegistry;
+
+/**
+ * This object contains mathematical helper functions.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.0
+ */
+public final class base {
+<span class="nc" id="L40">	private base() {require.noInstance();}</span>
+
+	/**
+	 * &lt;i&gt;Clamping&lt;/i&gt; a value between a pair of boundary values.
+	 * &lt;i&gt;Note: using clamp with floating point numbers may give unexpected
+	 * results if one of the values is {@code NaN}.&lt;/i&gt;
+	 *
+	 * @param v the value to &lt;i&gt;clamp&lt;/i&gt;
+	 * @param lo the lower bound.
+	 * @param hi the upper bound.
+	 * @return The clamped value:
+	 *        &lt;ul&gt;
+	 *            &lt;li&gt;{@code lo if v &lt; lo}&lt;/li&gt;
+	 *            &lt;li&gt;{@code hi if hi &lt; v}&lt;/li&gt;
+	 *            &lt;li&gt;{@code otherwise, v}&lt;/li&gt;
+	 *        &lt;/ul&gt;
+	 */
+	public static double clamp(final double v, final double lo, final double hi) {
+<span class="fc bfc" id="L58" title="All 4 branches covered.">		return v &lt; lo ? lo : (v &gt; hi ? hi : v);</span>
+	}
+
+	/**
+	 * Return the &lt;a href=&quot;http://en.wikipedia.org/wiki/Unit_in_the_last_place&quot;&gt;ULP&lt;/a&gt;
+	 * distance of the given two double values.
+	 *
+	 * @param a first double.
+	 * @param b second double.
+	 * @return the ULP distance.
+	 * @throws ArithmeticException if the distance doesn't fit in a long value.
+	 */
+	public static long ulpDistance(final double a, final double b) {
+<span class="fc" id="L71">		return Math.subtractExact(ulpPosition(a), ulpPosition(b));</span>
+	}
+
+	/**
+	 * Calculating the &lt;a href=&quot;http://en.wikipedia.org/wiki/Unit_in_the_last_place&quot;&gt;ULP&lt;/a&gt;
+	 * position of a double number.
+	 *
+	 * &lt;pre&gt;{@code
+	 * double a = 0.0;
+	 * for (int i = 0; i &lt; 10; ++i) {
+	 *     a = Math.nextAfter(a, Double.POSITIVE_INFINITY);
+	 * }
+	 *
+	 * for (int i = 0; i &lt; 19; ++i) {
+	 *     a = Math.nextAfter(a, Double.NEGATIVE_INFINITY);
+	 *     System.out.println(
+	 *          a + &quot;\t&quot; + ulpPosition(a) + &quot;\t&quot; + ulpDistance(0.0, a)
+	 *     );
+	 * }
+	 * }&lt;/pre&gt;
+	 *
+	 * The code fragment above will create the following output:
+	 * &lt;pre&gt;
+	 *   4.4E-323    9  9
+	 *   4.0E-323    8  8
+	 *   3.5E-323    7  7
+	 *   3.0E-323    6  6
+	 *   2.5E-323    5  5
+	 *   2.0E-323    4  4
+	 *   1.5E-323    3  3
+	 *   1.0E-323    2  2
+	 *   4.9E-324    1  1
+	 *   0.0         0  0
+	 *  -4.9E-324   -1  1
+	 *  -1.0E-323   -2  2
+	 *  -1.5E-323   -3  3
+	 *  -2.0E-323   -4  4
+	 *  -2.5E-323   -5  5
+	 *  -3.0E-323   -6  6
+	 *  -3.5E-323   -7  7
+	 *  -4.0E-323   -8  8
+	 *  -4.4E-323   -9  9
+	 * &lt;/pre&gt;
+	 *
+	 * @param a the double number.
+	 * @return the ULP position.
+	 */
+	public static long ulpPosition(final double a) {
+<span class="fc" id="L119">		long t = doubleToLongBits(a);</span>
+<span class="pc bpc" id="L120" title="1 of 2 branches missed.">		if (t &lt; 0) {</span>
+<span class="nc" id="L121">			t = Long.MIN_VALUE - t;</span>
+		}
+<span class="fc" id="L123">		return t;</span>
+	}
+
+	/**
+	 * Selects a random subset of size {@code k} from a set of size {@code n}.
+	 *
+	 * @see #subset(int, int[])
+	 *
+	 * @param n the size of the set.
+	 * @param k the size of the subset.
+	 * @throws IllegalArgumentException if {@code n &lt; k}, {@code k == 0} or if
+	 *          {@code n*k} will cause an integer overflow.
+	 * @return the subset array.
+	 */
+	public static int[] subset(final int n, final int k) {
+<span class="nc" id="L138">		return subset(n, k, RandomRegistry.getRandom());</span>
+	}
+
+	/**
+	 * Selects a random subset of size {@code k} from a set of size {@code n}.
+	 *
+	 * @see #subset(int, int[], Random)
+	 *
+	 * @param n the size of the set.
+	 * @param k the size of the subset.
+	 * @param random the random number generator used.
+	 * @throws NullPointerException if {@code random} is {@code null}.
+	 * @throws IllegalArgumentException if {@code n &lt; k}, {@code k == 0} or if
+	 *         {@code n*k} will cause an integer overflow.
+	 * @return the subset array.
+	 */
+	public static int[] subset(final int n, final int k, final Random random) {
+<span class="fc" id="L155">		requireNonNull(random, &quot;Random&quot;);</span>
+<span class="pc bpc" id="L156" title="1 of 2 branches missed.">		if (k &lt;= 0) {</span>
+<span class="nc" id="L157">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L158">					&quot;Subset size smaller or equal zero: %s&quot;, k</span>
+				));
+		}
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">		if (n &lt; k) {</span>
+<span class="nc" id="L162">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L163">					&quot;n smaller than k: %s &lt; %s.&quot;, n, k</span>
+				));
+		}
+
+<span class="fc" id="L167">		final int[] sub = new int[k];</span>
+<span class="fc" id="L168">		subset(n, sub,random);</span>
+<span class="fc" id="L169">		return sub;</span>
+	}
+
+	/**
+	 * &lt;p&gt;
+	 * Selects a random subset of size {@code sub.length} from a set of size
+	 * {@code n}.
+	 * &lt;/p&gt;
+	 *
+	 * &lt;p&gt;
+	 * &lt;em&gt;Authors:&lt;/em&gt;
+	 * 	 FORTRAN77 original version by Albert Nijenhuis, Herbert Wilf. This
+	 * 	 version based on the  C++ version by John Burkardt.
+	 * &lt;/p&gt;
+	 *
+	 * &lt;p&gt;&lt;em&gt;&lt;a href=&quot;https://people.scs.fsu.edu/~burkardt/c_src/subset/subset.html&quot;&gt;
+	 *  Reference:&lt;/a&gt;&lt;/em&gt;
+	 * 	 Albert Nijenhuis, Herbert Wilf,
+	 * 	 Combinatorial Algorithms for Computers and Calculators,
+	 * 	 Second Edition,
+	 * 	 Academic Press, 1978,
+	 * 	 ISBN: 0-12-519260-6,
+	 * 	 LC: QA164.N54.
+	 * &lt;/p&gt;
+	 *
+	 * @param n the size of the set.
+	 * @param sub the sub set array.
+	 * @throws NullPointerException if {@code sub} is {@code null}.
+	 * @throws IllegalArgumentException if {@code n &lt; sub.length},
+	 *         {@code sub.length == 0} or {@code n*sub.length} will cause an
+	 *         integer overflow.
+	 */
+	public static void subset(final int n, final int sub[]) {
+<span class="nc" id="L202">		subset(n, sub, RandomRegistry.getRandom());</span>
+<span class="nc" id="L203">	}</span>
+
+	/**
+	 * &lt;p&gt;
+	 * Selects a random subset of size {@code sub.length} from a set of size
+	 * {@code n}.
+	 * &lt;/p&gt;
+	 *
+	 * &lt;p&gt;
+	 * &lt;em&gt;Authors:&lt;/em&gt;
+	 *      FORTRAN77 original version by Albert Nijenhuis, Herbert Wilf. This
+	 *      version based on the  C++ version by John Burkardt.
+	 * &lt;/p&gt;
+	 *
+	 * &lt;p&gt;&lt;em&gt;&lt;a href=&quot;https://people.scs.fsu.edu/~burkardt/c_src/subset/subset.html&quot;&gt;
+	 *  Reference:&lt;/a&gt;&lt;/em&gt;
+	 *      Albert Nijenhuis, Herbert Wilf,
+	 *      Combinatorial Algorithms for Computers and Calculators,
+	 *      Second Edition,
+	 *      Academic Press, 1978,
+	 *      ISBN: 0-12-519260-6,
+	 *      LC: QA164.N54.
+	 * &lt;/p&gt;
+	 *
+	 * @param n the size of the set.
+	 * @param sub the sub set array.
+	 * @param random the random number generator used.
+	 * @return the sub-set array for the given parameter
+	 * @throws NullPointerException if {@code sub} or {@code random} is
+	 *         {@code null}.
+	 * @throws IllegalArgumentException if {@code n &lt; sub.length},
+	 *         {@code sub.length == 0} or {@code n*sub.length} will cause an
+	 *         integer overflow.
+	 */
+	public static int[] subset(final int n, final int sub[], final Random random) {
+<span class="fc" id="L238">		requireNonNull(random, &quot;Random&quot;);</span>
+<span class="fc" id="L239">		requireNonNull(sub, &quot;Sub set array&quot;);</span>
+
+<span class="fc" id="L241">		final int k = sub.length;</span>
+<span class="pc bpc" id="L242" title="1 of 2 branches missed.">		if (k &lt;= 0) {</span>
+<span class="nc" id="L243">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L244">				&quot;Subset size smaller or equal zero: %s&quot;, k</span>
+			));
+		}
+<span class="pc bpc" id="L247" title="1 of 2 branches missed.">		if (n &lt; k) {</span>
+<span class="nc" id="L248">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L249">				&quot;n smaller than k: %s &lt; %s.&quot;, n, k</span>
+			));
+		}
+<span class="pc bpc" id="L252" title="1 of 2 branches missed.">		if (!arithmetic.isMultiplicationSave(n, k)) {</span>
+<span class="nc" id="L253">			throw new IllegalArgumentException(format(</span>
+				&quot;n*sub.length &gt; Integer.MAX_VALUE (%s*%s = %s &gt; %s)&quot;,
+<span class="nc" id="L255">				n, sub.length, (long)n*(long)k, Integer.MAX_VALUE</span>
+			));
+		}
+
+<span class="fc bfc" id="L259" title="All 2 branches covered.">		if (sub.length == n) {</span>
+<span class="fc bfc" id="L260" title="All 2 branches covered.">			for (int i = 0; i &lt; sub.length; ++i) {</span>
+<span class="fc" id="L261">				sub[i] = i;</span>
+			}
+<span class="fc" id="L263">			return sub;</span>
+		}
+
+<span class="fc bfc" id="L266" title="All 2 branches covered.">		for (int i = 0; i &lt; k; ++i) {</span>
+<span class="fc" id="L267">			sub[i] = (i*n)/k;</span>
+		}
+
+<span class="fc" id="L270">		int l = 0;</span>
+<span class="fc" id="L271">		int ix = 0;</span>
+<span class="fc bfc" id="L272" title="All 2 branches covered.">		for (int i = 0; i &lt; k; ++i) {</span>
+			do {
+<span class="fc" id="L274">				ix = nextInt(random, 1, n);</span>
+<span class="fc" id="L275">				l = (ix*k - 1)/n;</span>
+<span class="fc bfc" id="L276" title="All 2 branches covered.">			} while (sub[l] &gt;= ix);</span>
+
+<span class="fc" id="L278">			sub[l] = sub[l] + 1;</span>
+		}
+
+<span class="fc" id="L281">		int m = 0;</span>
+<span class="fc" id="L282">		int ip = 0;</span>
+<span class="fc" id="L283">		int is = k;</span>
+<span class="fc bfc" id="L284" title="All 2 branches covered.">		for (int i = 0; i &lt; k; ++i) {</span>
+<span class="fc" id="L285">			m = sub[i];</span>
+<span class="fc" id="L286">			sub[i] = 0;</span>
+
+<span class="fc bfc" id="L288" title="All 2 branches covered.">			if (m != (i*n)/k) {</span>
+<span class="fc" id="L289">				ip = ip + 1;</span>
+<span class="fc" id="L290">				sub[ip - 1] = m;</span>
+			}
+		}
+
+<span class="fc" id="L294">		int ihi = ip;</span>
+<span class="fc" id="L295">		int ids = 0;</span>
+<span class="fc bfc" id="L296" title="All 2 branches covered.">		for (int i = 1; i &lt;= ihi; ++i) {</span>
+<span class="fc" id="L297">			ip = ihi + 1 - i;</span>
+<span class="fc" id="L298">			l = 1 + (sub[ip - 1]*k - 1)/n;</span>
+<span class="fc" id="L299">			ids = sub[ip - 1] - ((l - 1)*n)/k;</span>
+<span class="fc" id="L300">			sub[ip - 1] = 0;</span>
+<span class="fc" id="L301">			sub[is - 1] = l;</span>
+<span class="fc" id="L302">			is = is - ids;</span>
+		}
+
+<span class="fc" id="L305">		int ir = 0;</span>
+<span class="fc" id="L306">		int m0 = 0;</span>
+<span class="fc bfc" id="L307" title="All 2 branches covered.">		for (int ll = 1; ll &lt;= k; ++ll) {</span>
+<span class="fc" id="L308">			l = k + 1 - ll;</span>
+
+<span class="fc bfc" id="L310" title="All 2 branches covered.">			if (sub[l - 1] != 0) {</span>
+<span class="fc" id="L311">				ir = l;</span>
+<span class="fc" id="L312">				m0 = 1 + ((sub[l - 1] - 1)*n)/k;</span>
+<span class="fc" id="L313">				m = (sub[l-1]*n)/k - m0 + 1;</span>
+			}
+
+<span class="fc" id="L316">			ix = nextInt(random, m0, m0 + m - 1);</span>
+
+<span class="fc" id="L318">			int i = l + 1;</span>
+<span class="fc bfc" id="L319" title="All 4 branches covered.">			while (i &lt;= ir &amp;&amp; ix &gt;= sub[i - 1]) {</span>
+<span class="fc" id="L320">				ix = ix + 1;</span>
+<span class="fc" id="L321">				sub[ i- 2] = sub[i - 1];</span>
+<span class="fc" id="L322">				i = i + 1;</span>
+			}
+
+<span class="fc" id="L325">			sub[i - 2] = ix;</span>
+<span class="fc" id="L326">			--m;</span>
+		}
+
+<span class="fc" id="L329">		return sub;</span>
+	}
+
+	private static int nextInt(final Random random, final int a, final int b) {
+<span class="fc bfc" id="L333" title="All 2 branches covered.">		return a == b ? a - 1 : random.nextInt(b - a) + a;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

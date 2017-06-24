@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>AnyGene.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">AnyGene.java</span></div><h1>AnyGene.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.util.Objects.requireNonNull;
+
+import java.util.Objects;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+
+import org.jenetics.internal.util.Equality;
+
+import org.jenetics.util.ISeq;
+import org.jenetics.util.MSeq;
+
+/**
+ * {@code Gene} implementation, which allows to create genes without explicit
+ * implementing the {@code Gene} interface.
+ *
+ * &lt;pre&gt;{@code
+ * class Main {
+ *     // First monday of 2015.
+ *     private static final LocalDate MIN_MONDAY = LocalDate.of(2015, 1, 5);
+ *
+ *     // Supplier of random 'LocalDate' objects. The implementation is responsible
+ *     // for guaranteeing the desired allele restriction. In this case we will
+ *     // generate only mondays.
+ *     static LocalDate nextRandomMonday() {
+ *         return MIN_MONDAY.plusWeeks(RandomRegistry.getRandom().nextInt(1000));
+ *     }
+ *
+ *     // Create a new 'LocalDate' gene. All other genes, created with
+ *     // gene.newInstance(), are calling the 'newRandomMonday' method.
+ *     final AnyGene&lt;LocalDate&gt; gene = AnyGene.of(Main::nextRandomMonday);
+ * }
+ * }&lt;/pre&gt;
+ * The example above shows how to create {@code LocalDate} genes from a random
+ * {@code LocalDate} supplier. It also shows how to implement a restriction on
+ * the created dates. The usage of the {@code AnyGene} class is useful for
+ * supporting custom allele types without explicit implementation of the
+ * {@code Gene} interface. But the {@code AnyGene} can only be used for a subset
+ * of the existing alterers.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @version 3.3
+ * @since 3.3
+ */
+public final class AnyGene&lt;A&gt; implements Gene&lt;A, AnyGene&lt;A&gt;&gt; {
+
+	private final A _allele;
+	private final Supplier&lt;? extends A&gt; _supplier;
+	private final Predicate&lt;? super A&gt; _validator;
+
+	private AnyGene(
+		final A allele,
+		final Supplier&lt;? extends A&gt; supplier,
+		final Predicate&lt;? super A&gt; validator
+<span class="fc" id="L75">	) {</span>
+<span class="fc" id="L76">		_allele = allele;</span>
+<span class="fc" id="L77">		_supplier = requireNonNull(supplier);</span>
+<span class="fc" id="L78">		_validator = requireNonNull(validator);</span>
+<span class="fc" id="L79">	}</span>
+
+	@Override
+	public A getAllele() {
+<span class="fc" id="L83">		return _allele;</span>
+	}
+
+	@Override
+	public AnyGene&lt;A&gt; newInstance() {
+<span class="fc" id="L88">		return new AnyGene&lt;&gt;(_supplier.get(), _supplier, _validator);</span>
+	}
+
+	@Override
+	public AnyGene&lt;A&gt; newInstance(final A value) {
+<span class="nc" id="L93">		return new AnyGene&lt;&gt;(value, _supplier, _validator);</span>
+	}
+
+	@Override
+	public boolean isValid() {
+<span class="fc" id="L98">		return _validator.test(_allele);</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L103">		return Objects.hashCode(_allele);</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc bfc" id="L108" title="All 2 branches covered.">		return obj instanceof AnyGene&lt;?&gt; &amp;&amp;</span>
+<span class="fc bfc" id="L109" title="All 2 branches covered.">			Equality.eq(((AnyGene&lt;?&gt;)obj)._allele, _allele);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L114">		return Objects.toString(_allele);</span>
+	}
+
+
+	/* *************************************************************************
+	 *  Static factory methods.
+	 * ************************************************************************/
+
+	/**
+	 * Create a new {@code AnyGene} instance with the given parameters. New
+	 * (random) genes are created with the given allele {@code supplier}.
+	 *
+	 * @param &lt;A&gt; the allele type
+	 * @param allele the actual allele instance the created gene represents.
+	 *        {@code null} values are allowed.
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @param validator the validator used for validating the created gene. This
+	 *        predicate is used in the {@link #isValid()} method.
+	 * @return a new {@code AnyGene} with the given parameters
+	 * @throws NullPointerException if the {@code supplier} or {@code validator}
+	 *         is {@code null}
+	 */
+	public static &lt;A&gt; AnyGene&lt;A&gt; of(
+		final A allele,
+		final Supplier&lt;? extends A&gt; supplier,
+		final Predicate&lt;? super A&gt; validator
+	) {
+<span class="fc" id="L142">		return new AnyGene&lt;&gt;(allele, supplier, validator);</span>
+	}
+
+	/**
+	 * Create a new {@code AnyGene} instance with the given parameters. New
+	 * (random) genes are created with the given allele {@code supplier}. The
+	 * {@code validator} predicate of the generated gene will always return
+	 * {@code true}.
+	 *
+	 * @param &lt;A&gt; the allele type
+	 * @param allele the actual allele instance the created gene represents.
+	 *        {@code null} values are allowed.
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @return a new {@code AnyGene} with the given parameters
+	 * @throws NullPointerException if the {@code suppler} is {@code null}
+	 */
+	public static &lt;A&gt; AnyGene&lt;A&gt; of(
+		final A allele,
+		final Supplier&lt;? extends A&gt; supplier
+	) {
+<span class="fc" id="L163">		return new AnyGene&lt;&gt;(allele, supplier, a -&gt; true);</span>
+	}
+
+	/**
+	 * Create a new {@code AnyGene} instance with the given allele
+	 * {@code supplier}. The {@code validator} predicate of the generated gene
+	 * will always return {@code true}.
+	 *
+	 * @param &lt;A&gt; the allele type
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @return a new {@code AnyGene} with the given parameters
+	 * @throws NullPointerException if one of the parameters is {@code null}
+	 */
+	public static &lt;A&gt; AnyGene&lt;A&gt; of(final Supplier&lt;? extends A&gt; supplier) {
+<span class="fc" id="L178">		return new AnyGene&lt;&gt;(supplier.get(), supplier, a -&gt; true);</span>
+	}
+
+	/**
+	 * Create a new {@code AnyGene} instance with the given parameters. New
+	 * (random) genes are created with the given allele {@code supplier}.
+	 *
+	 * @param &lt;A&gt; the allele type
+	 * @param supplier the allele-supplier which is used for creating new,
+	 *        random alleles
+	 * @param validator the validator used for validating the created gene. This
+	 *        predicate is used in the {@link #isValid()} method.
+	 * @return a new {@code AnyGene} with the given parameters
+	 * @throws NullPointerException if one of the parameters is {@code null}
+	 */
+	public static &lt;A&gt; AnyGene&lt;A&gt; of(
+		final Supplier&lt;? extends A&gt; supplier,
+		final Predicate&lt;? super A&gt; validator
+	) {
+<span class="fc" id="L197">		return new AnyGene&lt;&gt;(supplier.get(), supplier, validator);</span>
+	}
+
+	// Create gene sequence.
+	static &lt;A&gt; ISeq&lt;AnyGene&lt;A&gt;&gt; seq(
+		final int length,
+		final Supplier&lt;? extends A&gt; supplier,
+		final Predicate&lt;? super A&gt; validator
+	) {
+<span class="fc" id="L206">		return MSeq.&lt;AnyGene&lt;A&gt;&gt;ofLength(length)</span>
+<span class="fc" id="L207">			.fill(() -&gt; of(supplier.get(), supplier, validator))</span>
+<span class="fc" id="L208">			.toISeq();</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

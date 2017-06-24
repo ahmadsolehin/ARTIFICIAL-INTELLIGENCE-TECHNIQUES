@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>DoubleSummary.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.stat</a> &gt; <span class="el_source">DoubleSummary.java</span></div><h1>DoubleSummary.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.stat;
+
+import static java.util.Objects.requireNonNull;
+import static org.jenetics.internal.util.Equality.eq;
+
+import java.io.Serializable;
+import java.util.DoubleSummaryStatistics;
+import java.util.function.ToDoubleFunction;
+import java.util.stream.Collector;
+
+import org.jenetics.internal.util.Hash;
+
+/**
+ * &lt;i&gt;Value&lt;/i&gt; objects which contains statistical summary information.
+ *
+ * @see java.util.DoubleSummaryStatistics
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.0
+ * @version 3.0
+ */
+public final class DoubleSummary implements Serializable {
+
+	private static final long serialVersionUID = 1L;
+
+	private final long _count;
+	private final double _min;
+	private final double _max;
+	private final double _sum;
+	private final double _mean;
+
+	/**
+	 * Create an immutable object which contains statistical summary values.
+	 *
+	 * @param count the count of values recorded
+	 * @param min the minimum value
+	 * @param max the maximum value
+	 * @param sum the sum of the recorded values
+	 * @param mean the arithmetic mean of values
+	 */
+	private DoubleSummary(
+		final long count,
+		final double min,
+		final double max,
+		final double sum,
+		final double mean
+<span class="nc" id="L66">	) {</span>
+<span class="nc" id="L67">		_count = count;</span>
+<span class="nc" id="L68">		_min = min;</span>
+<span class="nc" id="L69">		_max = max;</span>
+<span class="nc" id="L70">		_sum = sum;</span>
+<span class="nc" id="L71">		_mean = mean;</span>
+<span class="nc" id="L72">	}</span>
+
+	/**
+	 * Returns the count of values recorded.
+	 *
+	 * @return the count of recorded values
+	 */
+	public long getCount() {
+<span class="nc" id="L80">		return _count;</span>
+	}
+
+	/**
+	 * Return the minimum value recorded, or {@code Double.POSITIVE_INFINITY} if
+	 * no values have been recorded.
+	 *
+	 * @return the minimum value, or {@code Double.POSITIVE_INFINITY} if none
+	 */
+	public double getMin() {
+<span class="nc" id="L90">		return _min;</span>
+	}
+
+	/**
+	 * Return the maximum value recorded, or {@code Double.NEGATIVE_INFINITY} if
+	 * no values have been recorded.
+	 *
+	 * @return the maximum value, or {@code Double.NEGATIVE_INFINITY} if none
+	 */
+	public double getMax() {
+<span class="nc" id="L100">		return _max;</span>
+	}
+
+	/**
+	 * Return the sum of values recorded, or zero if no values have been
+	 * recorded.
+	 *
+	 * @return the sum of values, or zero if none
+	 */
+	public double getSum() {
+<span class="nc" id="L110">		return _sum;</span>
+	}
+
+	/**
+	 * Return the arithmetic mean of values recorded, or zero if no values have
+	 * been recorded.
+	 *
+	 * @return the arithmetic mean of values, or zero if none
+	 */
+	public double getMean() {
+<span class="nc" id="L120">		return _mean;</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="nc" id="L125">		return Hash.of(DoubleMoments.class)</span>
+<span class="nc" id="L126">			.and(_count)</span>
+<span class="nc" id="L127">			.and(_sum)</span>
+<span class="nc" id="L128">			.and(_min)</span>
+<span class="nc" id="L129">			.and(_max)</span>
+<span class="nc" id="L130">			.and(_mean).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="nc bnc" id="L135" title="All 2 branches missed.">		return obj instanceof DoubleSummary &amp;&amp;</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">			eq(_count, ((DoubleSummary)obj)._count) &amp;&amp;</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">			eq(_sum, ((DoubleSummary)obj)._sum) &amp;&amp;</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">			eq(_min, ((DoubleSummary)obj)._min) &amp;&amp;</span>
+<span class="nc bnc" id="L139" title="All 2 branches missed.">			eq(_max, ((DoubleSummary)obj)._max) &amp;&amp;</span>
+<span class="nc bnc" id="L140" title="All 2 branches missed.">			eq(_mean, ((DoubleSummary)obj)._mean);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="nc" id="L145">		return String.format(</span>
+			&quot;DoubleSummary[N=%d, ∧=%s, ∨=%s, Σ=%s, μ=%s]&quot;,
+<span class="nc" id="L147">			getCount(), getMin(), getMax(), getSum(), getMean()</span>
+		);
+	}
+
+	/**
+	 * Create an immutable object which contains statistical summary values.
+	 *
+	 * @param count the count of values recorded
+	 * @param min the minimum value
+	 * @param max the maximum value
+	 * @param sum the sum of the recorded values
+	 * @param mean the arithmetic mean of values
+	 * @return an immutable object which contains statistical summary values
+	 */
+	public static DoubleSummary of(
+		final long count,
+		final double min,
+		final double max,
+		final double sum,
+		final double mean
+	) {
+<span class="nc" id="L168">		return new DoubleSummary(</span>
+			count,
+			min,
+			max,
+			sum,
+			mean
+		);
+	}
+
+	/**
+	 * Return a new value object of the statistical summary, currently
+	 * represented by the {@code statistics} object.
+	 *
+	 * @param statistics the creating (mutable) statistics class
+	 * @return the statistical moments
+	 */
+	public static DoubleSummary of(final DoubleSummaryStatistics statistics) {
+<span class="nc" id="L185">		return new DoubleSummary(</span>
+<span class="nc" id="L186">			statistics.getCount(),</span>
+<span class="nc" id="L187">			statistics.getMin(),</span>
+<span class="nc" id="L188">			statistics.getMax(),</span>
+<span class="nc" id="L189">			statistics.getSum(),</span>
+<span class="nc" id="L190">			statistics.getAverage()</span>
+		);
+	}
+
+	/**
+	 * Return a {@code Collector} which applies an double-producing mapping
+	 * function to each input element, and returns summary-statistics for the
+	 * resulting values.
+	 *
+	 * &lt;pre&gt;{@code
+	 * final Stream&lt;SomeObject&gt; stream = ...
+	 * final DoubleSummary summary = stream
+	 *     .collect(toDoubleSummary(v -&gt; v.doubleValue()));
+	 * }&lt;/pre&gt;
+	 *
+	 * @param mapper a mapping function to apply to each element
+	 * @param &lt;T&gt; the type of the input elements
+	 * @return a {@code Collector} implementing the summary-statistics reduction
+	 * @throws java.lang.NullPointerException if the given {@code mapper} is
+	 *         {@code null}
+	 */
+	public static &lt;T&gt; Collector&lt;T, ?, DoubleSummary&gt;
+	toDoubleSummary(final ToDoubleFunction&lt;? super T&gt; mapper) {
+<span class="nc" id="L213">		requireNonNull(mapper);</span>
+<span class="nc" id="L214">		return Collector.of(</span>
+			DoubleSummaryStatistics::new,
+			(a, b) -&gt; a.accept(mapper.applyAsDouble(b)),
+			(a, b) -&gt; {a.combine(b); return a;},
+			DoubleSummary::of
+		);
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

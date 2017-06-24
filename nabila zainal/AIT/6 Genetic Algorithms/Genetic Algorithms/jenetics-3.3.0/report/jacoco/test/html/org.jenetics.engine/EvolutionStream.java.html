@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>EvolutionStream.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.engine</a> &gt; <span class="el_source">EvolutionStream.java</span></div><h1>EvolutionStream.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.engine;
+
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
+
+import org.jenetics.Gene;
+
+/**
+ * The {@code EvolutionStream} class extends the Java {@link Stream} and adds a
+ * method for limiting the evolution by a given predicate.
+ *
+ * @see java.util.stream.Stream
+ * @see Engine
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.0
+ * @version 3.1
+ */
+public interface EvolutionStream&lt;
+	G extends Gene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+	extends Stream&lt;EvolutionResult&lt;G, C&gt;&gt;
+{
+
+	/**
+	 * Returns a stream consisting of the elements of this stream, truncated
+	 * when the given {@code proceed} predicate returns {@code false}.
+	 * &lt;p&gt;
+	 * &lt;i&gt;General usage example:&lt;/i&gt;
+	 * &lt;pre&gt;{@code
+	 * final Phenotype&lt;DoubleGene, Double&gt; result = engine.stream()
+	 *      // Truncate the evolution stream after 5 &quot;steady&quot; generations.
+	 *     .limit(bySteadyFitness(5))
+	 *      // The evolution will stop after maximal 100 generations.
+	 *     .limit(100)
+	 *     .collect(toBestPhenotype());
+	 * }&lt;/pre&gt;
+	 *
+	 * @see limit
+	 *
+	 * @param proceed the predicate which determines whether the stream is
+	 *        truncated or not. &lt;i&gt;If the predicate returns {@code false}, the
+	 *        evolution stream is truncated.&lt;/i&gt;
+	 * @return the new stream
+	 * @throws NullPointerException if the given predicate is {@code null}.
+	 */
+	public EvolutionStream&lt;G, C&gt;
+	limit(final Predicate&lt;? super EvolutionResult&lt;G, C&gt;&gt; proceed);
+
+	/**
+	 * Create a new {@code EvolutionStream} from the given {@code start}
+	 * population and {@code evolution} function. The main purpose of this
+	 * factory method is to simplify the creation of an {@code EvolutionStream}
+	 * from an own evolution (GA) engine.
+	 *
+	 * &lt;pre&gt;{@code
+	 * final Supplier&lt;EvolutionStart&lt;DoubleGene, Double&gt;&gt; start = ...
+	 * final EvolutionStream&lt;DoubleGene, Double&gt; stream =
+	 *     EvolutionStream.of(start, new MySpecialEngine());
+	 * }&lt;/pre&gt;
+	 *
+	 * A more complete example for would look like as:
+	 *
+	 * &lt;pre&gt;{@code
+	 * public final class SpecialEngine {
+	 *
+	 *     // The fitness function.
+	 *     private static Double fitness(final Genotype&lt;DoubleGene&gt; gt) {
+	 *         return gt.getGene().getAllele();
+	 *     }
+	 *
+	 *     // Create new evolution start object.
+	 *     private static EvolutionStart&lt;DoubleGene, Double&gt;
+	 *     start(final int populationSize, final long generation) {
+	 *         final Population&lt;DoubleGene, Double&gt; population =
+	 *             Genotype.of(DoubleChromosome.of(0, 1)).instances()
+	 *                 .map(gt -&gt; Phenotype.of(gt, generation, SpecialEngine::fitness))
+	 *                 .limit(populationSize)
+	 *                 .collect(Population.toPopulation());
+	 *
+	 *         return EvolutionStart.of(population, generation);
+	 *     }
+	 *
+	 *     // The special evolution function.
+	 *     private static EvolutionResult&lt;DoubleGene, Double&gt;
+	 *     evolve(final EvolutionStart&lt;DoubleGene, Double&gt; start) {
+	 *         // Your special evolution implementation comes here!
+	 *         return null;
+	 *     }
+	 *
+	 *     public static void main(final String[] args) {
+	 *         final Genotype&lt;DoubleGene&gt; best = EvolutionStream
+	 *             .of(() -&gt; start(50, 0), SpecialEngine::evolve)
+	 *             .limit(limit.bySteadyFitness(10))
+	 *             .limit(1000)
+	 *             .collect(EvolutionResult.toBestGenotype());
+	 *
+	 *         System.out.println(String.format(&quot;Best Genotype: %s&quot;, best));
+	 *     }
+	 * }
+	 * }&lt;/pre&gt;
+	 *
+	 *
+	 * @since 3.1
+	 *
+	 * @param &lt;G&gt; the gene type
+	 * @param &lt;C&gt; the fitness type
+	 * @param start the evolution start
+	 * @param evolution the evolution function
+	 * @return a new {@code EvolutionStream} with the given {@code start} and
+	 *         {@code evolution} function
+	 * @throws java.lang.NullPointerException if one of the arguments is
+	 *         {@code null}
+	 */
+	public static &lt;G extends Gene&lt;?, G&gt;, C extends Comparable&lt;? super C&gt;&gt;
+	EvolutionStream&lt;G, C&gt; of(
+		final Supplier&lt;EvolutionStart&lt;G, C&gt;&gt; start,
+		final Function&lt;? super EvolutionStart&lt;G, C&gt;, EvolutionResult&lt;G, C&gt;&gt; evolution
+	) {
+<span class="fc" id="L142">		return new EvolutionStreamImpl&lt;&gt;(start, evolution);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

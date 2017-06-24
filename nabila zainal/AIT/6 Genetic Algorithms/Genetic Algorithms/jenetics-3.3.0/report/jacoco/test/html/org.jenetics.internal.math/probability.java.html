@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>probability.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.math</a> &gt; <span class="el_source">probability.java</span></div><h1>probability.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.math;
+
+import static org.jenetics.internal.math.arithmetic.pow;
+
+import org.jenetics.internal.util.require;
+
+/**
+ * Mathematical functions regarding probabilities.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.4
+ * @version 1.4
+ */
+public final class probability {
+<span class="nc" id="L34">	private probability() {require.noInstance();}</span>
+
+<span class="fc" id="L36">	private static final long INT_RANGE = pow(2, 32) - 1;</span>
+
+	/**
+	 * Maps the probability, given in the range {@code [0, 1]}, to an
+	 * integer in the range {@code [Integer.MIN_VALUE, Integer.MAX_VALUE]}.
+	 *
+	 * @see #toInt(double)
+	 * @see #toFloat(int)
+	 *
+	 * @param probability the probability to widen.
+	 * @return the widened probability.
+	 */
+	public static int toInt(final float probability) {
+<span class="fc" id="L49">		return Math.round(INT_RANGE*probability + Integer.MIN_VALUE);</span>
+	}
+
+	/**
+	 * Maps the probability, given in the range {@code [0, 1]}, to an
+	 * integer in the range {@code [Integer.MIN_VALUE, Integer.MAX_VALUE]}.
+	 *
+	 * @see #toInt(float)
+	 * @see #toFloat(int)
+	 *
+	 * @param probability the probability to widen.
+	 * @return the widened probability.
+	 */
+	public static int toInt(final double probability) {
+<span class="fc" id="L63">		return (int)(Math.round(INT_RANGE*probability) + Integer.MIN_VALUE);</span>
+	}
+
+	/**
+	 * Maps the &lt;i&gt;integer&lt;/i&gt; probability, within the range
+	 * {@code [Integer.MIN_VALUE, Integer.MAX_VALUE]} back to a float
+	 * probability within the range {@code [0, 1]}.
+	 *
+	 * @see #toInt(float)
+	 * @see  #toInt(double)
+	 *
+	 * @param probability the &lt;i&gt;integer&lt;/i&gt; probability to map.
+	 * @return the mapped probability within the range {@code [0, 1]}.
+	 */
+	public static float toFloat(final int probability) {
+<span class="fc" id="L78">		final long value = (long)probability + Integer.MAX_VALUE;</span>
+<span class="fc" id="L79">		return (float)(value/(double)INT_RANGE);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

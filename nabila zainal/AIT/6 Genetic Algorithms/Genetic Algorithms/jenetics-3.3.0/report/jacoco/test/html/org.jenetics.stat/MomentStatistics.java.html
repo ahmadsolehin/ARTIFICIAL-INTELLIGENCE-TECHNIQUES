@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>MomentStatistics.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.stat</a> &gt; <span class="el_source">MomentStatistics.java</span></div><h1>MomentStatistics.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.stat;
+
+import static java.lang.Double.NaN;
+import static java.lang.Math.sqrt;
+import static java.util.Objects.requireNonNull;
+
+import org.jenetics.internal.math.DoubleAdder;
+
+/**
+ * Base class for statistical moments calculation.
+ *
+ * @see &lt;a href=&quot;http://people.xiph.org/~tterribe/notes/homs.html&quot;&gt;
+ *      Computing Higher-Order Moments Online&lt;/a&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.0
+ * @version 3.1
+ */
+<span class="fc" id="L38">abstract class MomentStatistics {</span>
+
+	// the sample count.
+<span class="fc" id="L41">	private long _n = 0L;</span>
+
+	// Variables used for statistical moments.
+<span class="fc" id="L44">	private final DoubleAdder _m1 = new DoubleAdder();</span>
+<span class="fc" id="L45">	private final DoubleAdder _m2 = new DoubleAdder();</span>
+<span class="fc" id="L46">	private final DoubleAdder _m3 = new DoubleAdder();</span>
+<span class="fc" id="L47">	private final DoubleAdder _m4 = new DoubleAdder();</span>
+
+
+	/**
+	 * Update the moments with the given {@code value}.
+	 *
+	 * @param value the value which is used to update this statistical moments.
+	 */
+	void accept(final double value) {
+<span class="fc" id="L56">		++_n;</span>
+
+<span class="fc" id="L58">		final double n = _n;</span>
+<span class="fc" id="L59">		final double d = value - _m1.value();</span>
+<span class="fc" id="L60">		final double dN = d/n;</span>
+<span class="fc" id="L61">		final double dN2 = dN*dN;</span>
+<span class="fc" id="L62">		final double t1 = d*dN*(n - 1.0);</span>
+
+<span class="fc" id="L64">		_m1.add(dN);</span>
+<span class="fc" id="L65">		_m4.add(t1*dN2*(n*n - 3.0*n + 3.0))</span>
+<span class="fc" id="L66">			.add(6.0*dN2*_m2.value() - 4.0*dN*_m3.value());</span>
+<span class="fc" id="L67">		_m3.add(t1*dN*(n - 2.0) - 3.0*dN*_m2.value());</span>
+<span class="fc" id="L68">		_m2.add(t1);</span>
+<span class="fc" id="L69">	}</span>
+
+	/**
+	 * Combines the state of another {@code Moments} object into this one.
+	 *
+	 * @see &lt;a href=&quot;http://people.xiph.org/~tterribe/notes/homs.html&quot;&gt;
+	 *      Computing Higher-Order Moments Online&lt;/a&gt;
+	 */
+	void combine(final MomentStatistics b) {
+<span class="fc" id="L78">		requireNonNull(b);</span>
+
+<span class="fc" id="L80">		final double m2 = _m2.value();</span>
+<span class="fc" id="L81">		final double m3 = _m3.value();</span>
+
+<span class="fc" id="L83">		final double pn = _n;</span>
+<span class="fc" id="L84">		final double n = _n + b._n;</span>
+<span class="fc" id="L85">		final double nn = n*n;</span>
+
+<span class="fc" id="L87">		final double d = b._m1.value() - _m1.value();</span>
+<span class="fc" id="L88">		final double dd = d*d;</span>
+
+<span class="fc" id="L90">		_n += b._n;</span>
+
+<span class="fc" id="L92">		_m1.add(d*b._n/n);</span>
+
+<span class="fc" id="L94">		_m2.add(b._m2).add(dd*pn*b._n/n);</span>
+
+<span class="fc" id="L96">		_m3.add(b._m3)</span>
+<span class="fc" id="L97">			.add(dd*d*(pn*b._n*(pn - b._n)/nn))</span>
+<span class="fc" id="L98">			.add(3.0*d*(pn*b._m2.value() - b._n*m2)/n);</span>
+
+<span class="fc" id="L100">		_m4.add(b._m4)</span>
+<span class="fc" id="L101">			.add(dd*dd*(pn*b._n*(pn*pn - pn*b._n + b._n*b._n)/(nn*n)))</span>
+<span class="fc" id="L102">			.add(6.0*dd*(pn*pn*b._m2.value() + b._n*b._n*m2)/nn)</span>
+<span class="fc" id="L103">			.add(4.0*d*(pn*b._m3.value() - b._n*m3)/n);</span>
+<span class="fc" id="L104">	}</span>
+
+	/**
+	 * Returns the count of values recorded.
+	 *
+	 * @return the count of recorded values
+	 */
+	public long getCount() {
+<span class="fc" id="L112">		return _n;</span>
+	}
+
+	/**
+	 * Return the arithmetic mean of values recorded, or {@code Double.NaN} if
+	 * no values have been recorded.
+	 *
+	 * @return the arithmetic mean of values, or zero if none
+	 */
+	public double getMean() {
+<span class="fc bfc" id="L122" title="All 2 branches covered.">		return _n == 0L ? NaN : _m1.value();</span>
+	}
+
+	/**
+	 * Return the variance of values recorded, or {@code Double.NaN} if no
+	 * values have been recorded.
+	 *
+	 * @return the variance of values, or {@code NaN} if none
+	 */
+	public double getVariance() {
+<span class="fc" id="L132">		double var = NaN;</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">		if (_n == 1L) {</span>
+<span class="fc" id="L134">			var = _m2.value();</span>
+<span class="fc bfc" id="L135" title="All 2 branches covered.">		} else if (_n &gt; 1L) {</span>
+<span class="fc" id="L136">			var = _m2.value()/(_n - 1.0);</span>
+		}
+
+<span class="fc" id="L139">		return var;</span>
+	}
+
+	/**
+	 * Return the skewness of values recorded, or {@code Double.NaN} if less
+	 * than two values have been recorded.
+	 *
+	 * @see &lt;a href=&quot;https://en.wikipedia.org/wiki/Skewness&quot;&gt;Skewness&lt;/a&gt;
+	 *
+	 * @return the skewness of values, or {@code NaN} if less than two values
+	 *         have been recorded
+	 */
+	public double getSkewness() {
+<span class="fc" id="L152">		double skewness = NaN;</span>
+<span class="fc bfc" id="L153" title="All 2 branches covered.">		if (_n &gt;= 3L) {</span>
+<span class="fc" id="L154">			final double var = _m2.value()/(_n - 1.0);</span>
+<span class="pc bpc" id="L155" title="1 of 2 branches missed.">			if (var &lt; 10E-20) {</span>
+<span class="nc" id="L156">				skewness = 0.0d;</span>
+			} else {
+<span class="fc" id="L158">				skewness = (_n*_m3.value())/</span>
+<span class="fc" id="L159">						((_n - 1.0)*(_n - 2.0)*sqrt(var)*var);</span>
+			}
+		}
+
+<span class="fc" id="L163">		return skewness;</span>
+	}
+
+	/**
+	 * Return the kurtosis of values recorded, or {@code Double.NaN} if less
+	 * than four values have been recorded.
+	 *
+	 * @see &lt;a href=&quot;https://en.wikipedia.org/wiki/Kurtosis&quot;&gt;Kurtosis&lt;/a&gt;
+	 *
+	 * @return the kurtosis of values, or {@code NaN} if less than four values
+	 *         have been recorded
+	 */
+	public double getKurtosis() {
+<span class="fc" id="L176">		double kurtosis = NaN;</span>
+<span class="fc bfc" id="L177" title="All 2 branches covered.">		if (_n &gt; 3L) {</span>
+<span class="fc" id="L178">			final double var = _m2.value()/(_n - 1);</span>
+<span class="pc bpc" id="L179" title="2 of 4 branches missed.">			if (_n &lt;= 3L || var &lt; 10E-20) {</span>
+<span class="nc" id="L180">				kurtosis = 0.0;</span>
+			} else {
+<span class="fc" id="L182">				kurtosis = (_n*(_n + 1.0)*_m4.value() -</span>
+<span class="fc" id="L183">					3.0*_m2.value()*_m2.value()*(_n - 1.0))/</span>
+					((_n - 1.0)*(_n - 2.0)*(_n - 3.0)*var*var);
+			}
+		}
+<span class="fc" id="L187">		return kurtosis;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

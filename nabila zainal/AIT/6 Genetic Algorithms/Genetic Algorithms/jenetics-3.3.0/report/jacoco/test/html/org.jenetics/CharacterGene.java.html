@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>CharacterGene.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">CharacterGene.java</span></div><h1>CharacterGene.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.util.Objects.requireNonNull;
+import static org.jenetics.internal.util.Equality.eq;
+
+import java.io.Serializable;
+import java.util.Random;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+import javax.xml.bind.annotation.XmlValue;
+import javax.xml.bind.annotation.adapters.XmlAdapter;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+
+import org.jenetics.internal.util.Hash;
+
+import org.jenetics.util.CharSeq;
+import org.jenetics.util.ISeq;
+import org.jenetics.util.MSeq;
+import org.jenetics.util.RandomRegistry;
+
+/**
+ * Character gene implementation.
+ *
+ * &lt;p&gt;This is a &lt;a href=&quot;https://docs.oracle.com/javase/8/docs/api/java/lang/doc-files/ValueBased.html&quot;&gt;
+ * value-based&lt;/a&gt; class; use of identity-sensitive operations (including
+ * reference equality ({@code ==}), identity hash code, or synchronization) on
+ * instances of {@code CharacterGene} may have unpredictable results and should
+ * be avoided.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 2.0
+ */
+@XmlJavaTypeAdapter(CharacterGene.Model.Adapter.class)
+public final class CharacterGene
+	implements
+		Gene&lt;Character, CharacterGene&gt;,
+		Comparable&lt;CharacterGene&gt;,
+		Serializable
+{
+	private static final long serialVersionUID = 2L;
+
+	/**
+	 * The default character set used by this gene.
+	 */
+<span class="fc" id="L69">	public static final CharSeq DEFAULT_CHARACTERS = new CharSeq(</span>
+		&quot;0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ&quot; +
+		&quot; !\&quot;$%&amp;/()=?`{[]}\\+~*#';.:,-_&lt;&gt;|@^'&quot;
+	);
+
+	private final Character _character;
+	private final CharSeq _validCharacters;
+	private final Boolean _valid;
+
+<span class="fc" id="L78">	private CharacterGene(final CharSeq chars, final int index) {</span>
+<span class="fc" id="L79">		_character = chars.get(index);</span>
+<span class="fc" id="L80">		_validCharacters = chars;</span>
+<span class="fc" id="L81">		_valid = true;</span>
+<span class="fc" id="L82">	}</span>
+
+	/**
+	 * Create a new character gene from the given {@code character} and the
+	 * given set of valid characters.
+	 *
+	 * @param character the char this gene represents
+	 * @param validChars the set of valid characters.
+	 * @throws NullPointerException if one of the arguments is {@code null}.
+	 */
+<span class="fc" id="L92">	CharacterGene(final Character character, final CharSeq validChars) {</span>
+<span class="fc" id="L93">		_character = requireNonNull(character);</span>
+<span class="fc" id="L94">		_validCharacters = requireNonNull(validChars);</span>
+<span class="fc" id="L95">		_valid = _validCharacters.contains(_character);</span>
+<span class="fc" id="L96">	}</span>
+
+	@Override
+	public boolean isValid() {
+<span class="fc" id="L100">		return _valid;</span>
+	}
+
+	@Override
+	public Character getAllele() {
+<span class="fc" id="L105">		return _character;</span>
+	}
+
+	/**
+	 * Return the {@code char} value of this character gene.
+	 *
+	 * @return the {@code char} value.
+	 */
+	public char charValue() {
+<span class="fc" id="L114">		return _character;</span>
+	}
+
+	/**
+	 * Test, if the given character is valid.
+	 *
+	 * @param character The character to test.
+	 * @return true if the character is valid, false otherwise.
+	 */
+	public boolean isValidCharacter(final Character character) {
+<span class="fc" id="L124">		return _validCharacters.contains(character);</span>
+	}
+
+	/**
+	 * Return a (unmodifiable) set of valid characters.
+	 *
+	 * @return the {@link CharSeq} of valid characters.
+	 */
+	public CharSeq getValidCharacters() {
+<span class="fc" id="L133">		return _validCharacters;</span>
+	}
+
+	/**
+	 * @see java.lang.Character#compareTo(java.lang.Character)
+	 * @param that The other gene to compare.
+	 * @return the value 0 if the argument Character is equal to this Character;
+	 *         a value less than 0 if this Character is numerically less than
+	 *         the Character argument; and a value greater than 0 if this
+	 *         Character is numerically greater than the Character argument
+	 *         (unsigned comparison). Note that this is strictly a numerical
+	 *         comparison; it is not local-dependent.
+	 */
+	@Override
+	public int compareTo(final CharacterGene that) {
+<span class="fc" id="L148">		return getAllele().compareTo(that.getAllele());</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L153">		return Hash.of(getClass())</span>
+<span class="fc" id="L154">			.and(_character)</span>
+<span class="fc" id="L155">			.and(_validCharacters).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc bfc" id="L160" title="All 2 branches covered.">		return obj instanceof CharacterGene &amp;&amp;</span>
+<span class="fc bfc" id="L161" title="All 2 branches covered.">			eq(((CharacterGene)obj)._character, _character) &amp;&amp;</span>
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">			eq(((CharacterGene)obj)._validCharacters, _validCharacters);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L167">		return _character.toString();</span>
+	}
+
+
+	/* *************************************************************************
+	 *  Factory methods
+	 * ************************************************************************/
+
+	@Override
+	public CharacterGene newInstance() {
+<span class="fc" id="L177">		return of(_validCharacters);</span>
+	}
+
+	/**
+	 * Create a new character gene from the given character. If the character
+	 * is not within the {@link #getValidCharacters()}, an invalid gene will be
+	 * created.
+	 *
+	 * @param character the character value of the created gene.
+	 * @return a new character gene.
+	 * @throws NullPointerException if the given {@code character} is
+	 *         {@code null}.
+	 */
+	public CharacterGene newInstance(final Character character) {
+<span class="nc" id="L191">		return of(character, _validCharacters);</span>
+	}
+
+
+	/* *************************************************************************
+	 *  Static object creation methods
+	 * ************************************************************************/
+
+	/**
+	 * Create a new CharacterGene with a randomly chosen character from the
+	 * set of valid characters.
+	 *
+	 * @param validCharacters the valid characters for this gene.
+	 * @return a new valid, &lt;em&gt;random&lt;/em&gt; gene,
+	 * @throws NullPointerException if the {@code validCharacters} are
+	 *         {@code null}.
+	 */
+	public static CharacterGene of(final CharSeq validCharacters) {
+<span class="fc" id="L209">		return new CharacterGene(</span>
+			validCharacters,
+<span class="fc" id="L211">			RandomRegistry.getRandom().nextInt(validCharacters.length())</span>
+		);
+	}
+
+	/**
+	 * Create a new character gene from the given character. If the character
+	 * is not within the {@link #DEFAULT_CHARACTERS}, an invalid gene will be
+	 * created.
+	 *
+	 * @param character the character value of the created gene.
+	 * @return a new character gene.
+	 * @throws NullPointerException if the given {@code character} is
+	 *         {@code null}.
+	 */
+	public static CharacterGene of(final Character character) {
+<span class="fc" id="L226">		return new CharacterGene(character, DEFAULT_CHARACTERS);</span>
+	}
+
+	/**
+	 * Create a new random character gene, chosen from the
+	 * {@link #DEFAULT_CHARACTERS}.
+	 *
+	 * @return a new random character gene.
+	 */
+	public static CharacterGene of() {
+<span class="fc" id="L236">		return new CharacterGene(</span>
+			DEFAULT_CHARACTERS,
+<span class="fc" id="L238">			RandomRegistry.getRandom().nextInt(DEFAULT_CHARACTERS.length())</span>
+		);
+	}
+
+	/**
+	 * Create a new CharacterGene from the give character.
+	 *
+	 * @param character The allele.
+	 * @param validCharacters the valid characters fo the new gene
+	 * @return a new {@code CharacterGene} with the given parameter
+	 * @throws NullPointerException if one of the arguments is {@code null}.
+	 * @throws IllegalArgumentException if the {@code validCharacters} are empty.
+	 */
+	public static CharacterGene of(
+		final char character,
+		final CharSeq validCharacters
+	) {
+<span class="fc" id="L255">		return new CharacterGene(character, validCharacters);</span>
+	}
+
+	static ISeq&lt;CharacterGene&gt; seq(final CharSeq chars, final int length) {
+<span class="fc" id="L259">		final Random r = RandomRegistry.getRandom();</span>
+
+<span class="fc" id="L261">		return MSeq.&lt;CharacterGene&gt;ofLength(length)</span>
+<span class="fc" id="L262">			.fill(() -&gt; new CharacterGene(chars, r.nextInt(chars.length())))</span>
+<span class="fc" id="L263">			.toISeq();</span>
+	}
+
+	/* *************************************************************************
+	 *  JAXB object serialization
+	 * ************************************************************************/
+
+	@XmlRootElement(name = &quot;character-gene&quot;)
+	@XmlType(name = &quot;org.jenetics.CharacterGene&quot;)
+	@XmlAccessorType(XmlAccessType.FIELD)
+<span class="fc" id="L273">	final static class Model {</span>
+
+		@XmlAttribute(name = &quot;valid-alleles&quot;, required = true)
+		public String validCharacters;
+
+		@XmlValue
+		public String value;
+
+<span class="fc" id="L281">		public final static class Adapter</span>
+			extends XmlAdapter&lt;Model, CharacterGene&gt;
+		{
+			@Override
+			public Model marshal(final CharacterGene value) {
+<span class="nc" id="L286">				final Model m = new Model();</span>
+<span class="nc" id="L287">				m.validCharacters = value.getValidCharacters().toString();</span>
+<span class="nc" id="L288">				m.value = value.getAllele().toString();</span>
+<span class="nc" id="L289">				return m;</span>
+			}
+
+			@Override
+			public CharacterGene unmarshal(final Model m) {
+<span class="fc" id="L294">				return CharacterGene.of(</span>
+<span class="fc" id="L295">					m.value.charAt(0),</span>
+					new CharSeq(m.validCharacters)
+				);
+			}
+		}
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

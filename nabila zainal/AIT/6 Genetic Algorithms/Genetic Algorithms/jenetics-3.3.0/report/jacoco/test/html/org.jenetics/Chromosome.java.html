@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Chromosome.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">Chromosome.java</span></div><h1>Chromosome.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import java.util.stream.Stream;
+
+import org.jenetics.util.Factory;
+import org.jenetics.util.ISeq;
+import org.jenetics.util.Verifiable;
+
+/**
+ * A chromosome consists of one or more genes. It also provides a factory
+ * method for creating new, random chromosome instances of the same type and the
+ * same constraint.
+ * &lt;p&gt;
+ * &lt;span class=&quot;simpleTagLabel&quot;&gt;API Note: &lt;/span&gt;
+ * Implementations of the {@code Chromosome} interface must be &lt;em&gt;immutable&lt;/em&gt;
+ * and guarantee an efficient random access ({@code O(1)}) to the genes.
+ *
+ * @see &lt;a href=&quot;http://en.wikipedia.org/wiki/Chromosome&quot;&gt;Wikipdida: Chromosome&lt;/a&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.1
+ */
+public interface Chromosome&lt;G extends Gene&lt;?, G&gt;&gt;
+	extends
+		Verifiable,
+		Iterable&lt;G&gt;,
+		Factory&lt;Chromosome&lt;G&gt;&gt;
+{
+	/**
+	 * A factory method which creates a new {@link Chromosome} of specific type
+	 * and the given {@code genes}.
+	 *
+	 * @param genes the genes of the new chromosome. The given genes array is
+	 *         not copied.
+	 * @return A new {@link Chromosome} of the same type with the given genes.
+	 * @throws NullPointerException if the given {@code gene}s are {@code null}.
+	 * @throws IllegalArgumentException if the length of the given gene sequence
+	 *        is smaller than one.
+	 */
+	public Chromosome&lt;G&gt; newInstance(final ISeq&lt;G&gt; genes);
+
+	/**
+	 * Return the first gene of this chromosome. Each chromosome must contain
+	 * at least one gene.
+	 *
+	 * @return the first gene of this chromosome.
+	 */
+	public default G getGene() {
+<span class="fc" id="L69">		return getGene(0);</span>
+	}
+
+	/**
+	 * Return the gene on the specified index.
+	 *
+	 * @param index The gene index.
+	 * @return the wanted gene.
+	 * @throws IndexOutOfBoundsException if the index is out of range
+	 *          (index &amp;lt; 1 || index &amp;gt;= length()).
+	 */
+	public G getGene(final int index);
+
+	/**
+	 * Returns the length of the Chromosome. The minimal length of a
+	 * chromosome is one.
+	 *
+	 * @return Length of the Chromosome
+	 */
+	public int length();
+
+	/**
+	 * Return an unmodifiable sequence of the genes of this chromosome.
+	 *
+	 * @return an immutable gene sequence.
+	 */
+	public ISeq&lt;G&gt; toSeq();
+
+	/**
+	 * Returns a sequential {@code Stream} of genes with this chromosome as
+	 * its source.
+	 *
+	 * @since 3.3
+	 *
+	 * @return a sequential {@code Stream} of genes
+	 */
+	public default Stream&lt;G&gt; stream() {
+<span class="fc" id="L106">		return toSeq().stream();</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

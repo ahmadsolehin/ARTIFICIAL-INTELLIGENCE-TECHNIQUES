@@ -1,0 +1,437 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Phenotype.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">Phenotype.java</span></div><h1>Phenotype.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static org.jenetics.internal.util.Equality.eq;
+
+import java.io.Serializable;
+import java.util.function.Function;
+
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlType;
+import javax.xml.bind.annotation.adapters.XmlAdapter;
+import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+
+import org.jenetics.internal.util.Hash;
+import org.jenetics.internal.util.jaxb;
+
+import org.jenetics.util.Verifiable;
+
+/**
+ * The {@code Phenotype} consists of a {@link Genotype} plus a fitness
+ * {@link Function}, where the fitness {@link Function} represents the
+ * environment where the {@link Genotype} lives.
+ * This class implements the {@link Comparable} interface, to define a natural
+ * order between two {@code Phenotype}s. The natural order of the
+ * {@code Phenotypes} is defined by its fitness value (given by the
+ * fitness {@link Function}. The {@code Phenotype} is immutable and therefore
+ * can't be changed after creation.
+ * &lt;p&gt;
+ * The evaluation of the fitness function is performed lazily. Either by calling
+ * one of the fitness accessors ({@link #getFitness()} or {@link #getRawFitness()})
+ * of through the &lt;i&gt;evaluation&lt;/i&gt; methods {@link #run()} or {@link #evaluate()}.
+ * Since the {@code Phenotype} implements the {@link Runnable} interface, it is
+ * easily possible to perform the fitness function evaluation concurrently, by
+ * putting it into an {@link java.util.concurrent.ExecutorService}.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.1
+ */
+@XmlJavaTypeAdapter(Phenotype.Model.Adapter.class)
+public final class Phenotype&lt;
+	G extends Gene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+	implements
+		Comparable&lt;Phenotype&lt;G, C&gt;&gt;,
+		Verifiable,
+		Serializable,
+		Runnable
+{
+	private static final long serialVersionUID = 4L;
+
+	private final Genotype&lt;G&gt; _genotype;
+
+	private final Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; _function;
+	private final Function&lt;? super C, ? extends C&gt; _scaler;
+
+	private final long _generation;
+
+	// Storing the fitness value for lazy evaluation.
+<span class="fc" id="L85">	private transient volatile boolean _evaluated = false;</span>
+<span class="fc" id="L86">	private C _rawFitness = null;</span>
+<span class="fc" id="L87">	private C _fitness = null;</span>
+
+	/**
+	 * Create a new phenotype from the given arguments.
+	 *
+	 * @param genotype the genotype of this phenotype.
+	 * @param generation the current generation of the generated phenotype.
+	 * @param function the fitness function of this phenotype.
+	 * @param scaler the fitness scaler.
+	 * @throws NullPointerException if one of the arguments is {@code null}.
+	 * @throws IllegalArgumentException if the given {@code generation} is
+	 *         {@code &lt; 0}.
+	 */
+	private Phenotype(
+		final Genotype&lt;G&gt; genotype,
+		final long generation,
+		final Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; function,
+		final Function&lt;? super C, ? extends C&gt; scaler
+<span class="fc" id="L105">	) {</span>
+<span class="fc" id="L106">		_genotype = requireNonNull(genotype, &quot;Genotype&quot;);</span>
+<span class="fc" id="L107">		_function = requireNonNull(function, &quot;Fitness function&quot;);</span>
+<span class="fc" id="L108">		_scaler = requireNonNull(scaler, &quot;Fitness scaler&quot;);</span>
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">		if (generation &lt; 0) {</span>
+<span class="nc" id="L110">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L111">				&quot;Generation must not &lt; 0 and was %s.&quot;, generation</span>
+			));
+		}
+<span class="fc" id="L114">		_generation = generation;</span>
+<span class="fc" id="L115">	}</span>
+
+	/**
+	 * This method returns a copy of the {@code Genotype}, to guarantee a
+	 * immutable class.
+	 *
+	 * @return the cloned {@code Genotype} of this {@code Phenotype}.
+	 * @throws NullPointerException if one of the arguments is {@code null}.
+	 */
+	public Genotype&lt;G&gt; getGenotype() {
+<span class="fc" id="L125">		return _genotype;</span>
+	}
+
+	/**
+	 * Evaluates the (raw) fitness values and caches it so the fitness calculation
+	 * is performed only once.
+	 *
+	 * @return this phenotype, for method chaining.
+	 */
+	public Phenotype&lt;G, C&gt; evaluate() {
+<span class="fc bfc" id="L135" title="All 2 branches covered.">		if (!_evaluated) {</span>
+<span class="fc" id="L136">			eval();</span>
+		}
+<span class="fc" id="L138">		return this;</span>
+	}
+
+	private synchronized void eval() {
+<span class="pc bpc" id="L142" title="1 of 2 branches missed.">		if (!_evaluated) {</span>
+<span class="fc bfc" id="L143" title="All 2 branches covered.">			if (_rawFitness == null) _rawFitness = _function.apply(_genotype);</span>
+<span class="fc bfc" id="L144" title="All 2 branches covered.">			if (_fitness == null) _fitness = _scaler.apply(_rawFitness);</span>
+<span class="fc" id="L145">			_evaluated = true;</span>
+		}
+<span class="fc" id="L147">	}</span>
+
+	/**
+	 * This method simply calls the {@link #evaluate()} method. The purpose of
+	 * this method is to have a simple way for concurrent fitness calculation
+	 * for expensive fitness values.
+	 */
+	@Override
+	public void run() {
+<span class="fc" id="L156">		evaluate();</span>
+<span class="fc" id="L157">	}</span>
+
+	/**
+	 * Return the fitness function used by this phenotype to calculate the
+	 * (raw) fitness value.
+	 *
+	 * @return the fitness function.
+	 */
+	public Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; getFitnessFunction() {
+<span class="nc" id="L166">		return _function;</span>
+	}
+
+	/**
+	 * Return the fitness scaler used by this phenotype to scale the &lt;i&gt;raw&lt;/i&gt;
+	 * fitness.
+	 *
+	 * @return the fitness scaler.
+	 */
+	public Function&lt;? super C, ? extends C&gt; getFitnessScaler() {
+<span class="nc" id="L176">		return _scaler;</span>
+	}
+
+	/**
+	 * Return the fitness value of this {@code Phenotype}.
+	 *
+	 * @return The fitness value of this {@code Phenotype}.
+	 */
+	public C getFitness() {
+<span class="fc" id="L185">		evaluate();</span>
+<span class="fc" id="L186">		return _fitness;</span>
+	}
+
+	/**
+	 * Return the raw fitness (before scaling) of the phenotype.
+	 *
+	 * @return The raw fitness (before scaling) of the phenotype.
+	 */
+	public C getRawFitness() {
+<span class="fc" id="L195">		evaluate();</span>
+<span class="fc" id="L196">		return _rawFitness;</span>
+	}
+
+	/**
+	 * Return the generation this {@link Phenotype} was created.
+	 *
+	 * @return The generation this {@link Phenotype} was created.
+	 */
+	public long getGeneration() {
+<span class="nc" id="L205">		return _generation;</span>
+	}
+
+	/**
+	 * Return the age of this phenotype depending on the given current generation.
+	 *
+	 * @param currentGeneration the current generation evaluated by the GA.
+	 * @return the age of this phenotype:
+	 *          {@code currentGeneration - this.getGeneration()}.
+	 */
+	public long getAge(final long currentGeneration) {
+<span class="fc" id="L216">		return currentGeneration - _generation;</span>
+	}
+
+	/**
+	 * Test whether this phenotype is valid. The phenotype is valid if its
+	 * {@link Genotype} is valid.
+	 *
+	 * @return true if this phenotype is valid, false otherwise.
+	 */
+	@Override
+	public boolean isValid() {
+<span class="fc" id="L227">		return _genotype.isValid();</span>
+	}
+
+	@Override
+	public int compareTo(final Phenotype&lt;G, C&gt; pt) {
+<span class="fc" id="L232">		return getFitness().compareTo(pt.getFitness());</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L237">		return Hash.of(getClass())</span>
+<span class="fc" id="L238">			.and(_generation)</span>
+<span class="fc" id="L239">			.and(getFitness())</span>
+<span class="fc" id="L240">			.and(getRawFitness())</span>
+<span class="fc" id="L241">			.and(_genotype).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc bfc" id="L246" title="All 2 branches covered.">		return obj instanceof Phenotype&lt;?, ?&gt; &amp;&amp;</span>
+<span class="fc bfc" id="L247" title="All 2 branches covered.">			eq(getFitness(), ((Phenotype&lt;?, ?&gt;)obj).getFitness()) &amp;&amp;</span>
+<span class="pc bpc" id="L248" title="1 of 2 branches missed.">			eq(getRawFitness(), ((Phenotype&lt;?, ?&gt;)obj).getRawFitness()) &amp;&amp;</span>
+<span class="pc bpc" id="L249" title="1 of 2 branches missed.">			eq(_genotype, ((Phenotype&lt;?, ?&gt;)obj)._genotype) &amp;&amp;</span>
+<span class="pc bpc" id="L250" title="1 of 2 branches missed.">			eq(_generation, ((Phenotype&lt;?, ?&gt;)obj)._generation);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L255">		return _genotype + &quot; --&gt; &quot; + getFitness();</span>
+	}
+
+	/**
+	 * Create a new {@code Phenotype} with a different {@code Genotype} but the
+	 * same {@code generation}, fitness {@code function} and fitness
+	 * {@code scaler}.
+	 *
+	 * @since 3.1
+	 *
+	 * @param genotype the new genotype
+	 * @return a new {@code phenotype} with replaced {@code genotype}
+	 * @throws NullPointerException if the given {@code genotype} is {@code null}.
+	 */
+	public Phenotype&lt;G, C&gt; newInstance(final Genotype&lt;G&gt; genotype) {
+<span class="nc" id="L270">		return of(genotype, _generation, _function, _scaler);</span>
+	}
+
+	/**
+	 * Factory method for creating a new {@link Phenotype} with the same
+	 * {@link Function} and age as this {@link Phenotype}.
+	 *
+	 * @param genotype the new genotype of the new phenotype.
+	 * @param generation date of birth (generation) of the new phenotype.
+	 * @return New {@link Phenotype} with the same fitness {@link Function}.
+	 * @throws NullPointerException if the {@code genotype} is {@code null}.
+	 */
+	Phenotype&lt;G, C&gt; newInstance(
+		final Genotype&lt;G&gt; genotype,
+		final long generation
+	) {
+<span class="fc" id="L286">		return of(genotype, generation, _function, _scaler);</span>
+	}
+
+	/**
+	 * Return a new phenotype with the the genotype of this and with new
+	 * fitness function, fitness scaler and generation.
+	 *
+	 * @param generation the generation of the new phenotype.
+	 * @param function the (new) fitness scaler of the created phenotype.
+	 * @param scaler the (new) fitness scaler of the created phenotype
+	 * @return a new phenotype with the given values.
+	 * @throws NullPointerException if one of the values is {@code null}.
+	 * @throws IllegalArgumentException if the given {@code generation} is
+	 *         {@code &lt; 0}.
+	 */
+	public Phenotype&lt;G, C&gt; newInstance(
+		final long generation,
+		final Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; function,
+		final Function&lt;? super C, ? extends C&gt; scaler
+	) {
+<span class="nc" id="L306">		return of(_genotype, generation, function, scaler);</span>
+	}
+
+	/**
+	 * Return a new phenotype with the the genotype of this and with new
+	 * fitness function and generation.
+	 *
+	 * @param generation the generation of the new phenotype.
+	 * @param function the (new) fitness scaler of the created phenotype.
+	 * @return a new phenotype with the given values.
+	 * @throws NullPointerException if one of the values is {@code null}.
+	 * @throws IllegalArgumentException if the given {@code generation} is
+	 *         {@code &lt; 0}.
+	 */
+	public Phenotype&lt;G, C&gt; newInstance(
+		final long generation,
+		final Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; function
+	) {
+<span class="nc" id="L324">		return of(_genotype, generation, function, a -&gt; a);</span>
+	}
+
+	/**
+	 * The {@code Genotype} is copied to guarantee an immutable class. Only
+	 * the age of the {@code Phenotype} can be incremented.
+	 *
+	 * @param &lt;G&gt; the gene type of the chromosome
+	 * @param &lt;C&gt; the fitness value type
+	 * @param genotype the genotype of this phenotype.
+	 * @param generation the current generation of the generated phenotype.
+	 * @param function the fitness function of this phenotype.
+	 * @return a new phenotype from the given parameters
+	 * @throws NullPointerException if one of the arguments is {@code null}.
+	 * @throws IllegalArgumentException if the given {@code generation} is
+	 *         {@code &lt; 0}.
+	 */
+	public static &lt;G extends Gene&lt;?, G&gt;, C extends Comparable&lt;? super C&gt;&gt;
+	Phenotype&lt;G, C&gt; of(
+		final Genotype&lt;G&gt; genotype,
+		final long generation,
+		final Function&lt;? super Genotype&lt;G&gt;, C&gt; function
+	) {
+<span class="fc bfc" id="L347" title="All 2 branches covered.">		return of(</span>
+			genotype,
+			generation,
+			function,
+			function instanceof Serializable
+				? (Function&lt;? super C, ? extends C&gt; &amp; Serializable)a -&gt; a
+				: a -&gt; a
+		);
+	}
+
+	/**
+	 * Create a new phenotype from the given arguments.
+	 *
+	 * @param &lt;G&gt; the gene type of the chromosome
+	 * @param &lt;C&gt; the fitness value type
+	 * @param genotype the genotype of this phenotype.
+	 * @param generation the current generation of the generated phenotype.
+	 * @param function the fitness function of this phenotype.
+	 * @param scaler the fitness scaler.
+	 * @return a new phenotype object
+	 * @throws NullPointerException if one of the arguments is {@code null}.
+	 * @throws IllegalArgumentException if the given {@code generation} is
+	 *         {@code &lt; 0}.
+	 */
+	public static &lt;G extends Gene&lt;?, G&gt;, C extends Comparable&lt;? super C&gt;&gt;
+	Phenotype&lt;G, C&gt; of(
+		final Genotype&lt;G&gt; genotype,
+		final long generation,
+		final Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; function,
+		final Function&lt;? super C, ? extends C&gt; scaler
+	) {
+<span class="fc" id="L378">		return new Phenotype&lt;&gt;(</span>
+			genotype,
+			generation,
+			function,
+			scaler
+		);
+	}
+
+	/* *************************************************************************
+	 *  JAXB object serialization
+	 * ************************************************************************/
+
+	@XmlRootElement(name = &quot;phenotype&quot;)
+	@XmlType(name = &quot;org.jenetics.Phenotype&quot;)
+	@XmlAccessorType(XmlAccessType.FIELD)
+	@SuppressWarnings({ &quot;unchecked&quot;, &quot;rawtypes&quot; })
+<span class="fc" id="L394">	final static class Model {</span>
+
+		@XmlAttribute(name = &quot;generation&quot;, required = true)
+		public long generation;
+
+		@XmlElement(name = &quot;genotype&quot;, required = true, nillable = false)
+		public Genotype.Model genotype;
+
+		@XmlElement(name = &quot;fitness&quot;, required = true, nillable = false)
+		public Object fitness;
+
+		@XmlElement(name = &quot;raw-fitness&quot;, required = true, nillable = false)
+		public Object rawFitness;
+
+<span class="fc" id="L408">		public final static class Adapter</span>
+			extends XmlAdapter&lt;Model, Phenotype&gt;
+		{
+			@Override
+			public Model marshal(final Phenotype pt) throws Exception {
+<span class="nc" id="L413">				final Model m = new Model();</span>
+<span class="nc" id="L414">				m.generation = pt.getGeneration();</span>
+<span class="nc" id="L415">				m.genotype = Genotype.Model.ADAPTER.marshal(pt.getGenotype());</span>
+<span class="nc" id="L416">				m.fitness = jaxb.marshal(pt.getFitness());</span>
+<span class="nc" id="L417">				m.rawFitness = jaxb.marshal(pt.getRawFitness());</span>
+<span class="nc" id="L418">				return m;</span>
+			}
+
+			@Override
+			public Phenotype unmarshal(final Model m) throws Exception {
+<span class="fc" id="L423">				final Phenotype pt = new Phenotype(</span>
+<span class="fc" id="L424">					Genotype.Model.ADAPTER.unmarshal(m.genotype),</span>
+					m.generation,
+<span class="fc" id="L426">					Function.identity(),</span>
+<span class="fc" id="L427">					Function.identity()</span>
+				);
+<span class="fc" id="L429">				pt._fitness = (Comparable)m.fitness;</span>
+<span class="fc" id="L430">				pt._rawFitness = (Comparable)m.rawFitness;</span>
+<span class="fc" id="L431">				return pt;</span>
+			}
+		}
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Mutator.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">Mutator.java</span></div><h1>Mutator.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.lang.Math.pow;
+import static java.lang.String.format;
+import static org.jenetics.internal.math.random.indexes;
+
+import org.jenetics.internal.util.Equality;
+import org.jenetics.internal.util.Hash;
+import org.jenetics.internal.util.IntRef;
+
+import org.jenetics.util.MSeq;
+import org.jenetics.util.RandomRegistry;
+
+/**
+ * This class is for mutating a chromosomes of an given population. There are
+ * two distinct roles mutation plays
+ * &lt;ul&gt;
+ *     &lt;li&gt;Exploring the search space. By making small moves mutation allows a
+ *     population to explore the search space. This exploration is often slow
+ *     compared to crossover, but in problems where crossover is disruptive this
+ *     can be an important way to explore the landscape.
+ *     &lt;/li&gt;
+ *     &lt;li&gt;Maintaining diversity. Mutation prevents a population from
+ *     correlating. Even if most of the search is being performed by crossover,
+ *     mutation can be vital to provide the diversity which crossover needs.
+ *     &lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;
+ * The mutation probability is the parameter that must be optimized. The optimal
+ * value of the mutation rate depends on the role mutation plays. If mutation is
+ * the only source of exploration (if there is no crossover) then the mutation
+ * rate should be set so that a reasonable neighborhood of solutions is explored.
+ * &lt;/p&gt;
+ * The mutation probability &lt;i&gt;P(m)&lt;/i&gt; is the probability that a specific gene
+ * over the whole population is mutated. The number of available genes of an
+ * population is
+ * &lt;p&gt;
+ * &lt;img src=&quot;doc-files/mutator-N_G.gif&quot; alt=&quot;N_P N_{g}=N_P \sum_{i=0}^{N_{G}-1}N_{C[i]}&quot; &gt;
+ * &lt;/p&gt;
+ * where &lt;i&gt;N&lt;sub&gt;P&lt;/sub&gt;&lt;/i&gt;  is the population size, &lt;i&gt;N&lt;sub&gt;g&lt;/sub&gt;&lt;/i&gt; the
+ * number of genes of a genotype. So the (average) number of genes
+ * mutated by the mutation is
+ * &lt;p&gt;
+ * &lt;img src=&quot;doc-files/mutator-mean_m.gif&quot; alt=&quot;\hat{\mu}=N_{P}N_{g}\cdot P(m)&quot; &gt;
+ * &lt;/p&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 3.0
+ */
+<span class="pc bpc" id="L71" title="1 of 2 branches missed.">public class Mutator&lt;</span>
+	G extends Gene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+	extends AbstractAlterer&lt;G, C&gt;
+{
+
+	/**
+	 * Construct a Mutation object which a given mutation probability.
+	 *
+	 * @param probability Mutation probability. The given probability is
+	 *         divided by the number of chromosomes of the genotype to form
+	 *         the concrete mutation probability.
+	 * @throws IllegalArgumentException if the {@code probability} is not in the
+	 *          valid range of {@code [0, 1]}..
+	 */
+	public Mutator(final double probability) {
+<span class="fc" id="L88">		super(probability);</span>
+<span class="fc" id="L89">	}</span>
+
+	/**
+	 * Default constructor, with probability = 0.01.
+	 */
+	public Mutator() {
+<span class="fc" id="L95">		this(0.01);</span>
+<span class="fc" id="L96">	}</span>
+
+	/**
+	 * Concrete implementation of the alter method.
+	 */
+	@Override
+	public int alter(
+		final Population&lt;G, C&gt; population,
+		final long generation
+	) {
+<span class="pc bpc" id="L106" title="2 of 4 branches missed.">		assert population != null : &quot;Not null is guaranteed from base class.&quot;;</span>
+
+<span class="fc" id="L108">		final double p = pow(_probability, 1.0/3.0);</span>
+<span class="fc" id="L109">		final IntRef alterations = new IntRef(0);</span>
+
+<span class="fc" id="L111">		indexes(RandomRegistry.getRandom(), population.size(), p).forEach(i -&gt; {</span>
+			final Phenotype&lt;G, C&gt; pt = population.get(i);
+
+			final Genotype&lt;G&gt; gt = pt.getGenotype();
+			final Genotype&lt;G&gt; mgt = mutate(gt, p, alterations);
+
+			final Phenotype&lt;G, C&gt; mpt = pt.newInstance(mgt, generation);
+			population.set(i, mpt);
+		});
+
+<span class="fc" id="L121">		return alterations.value;</span>
+	}
+
+	private Genotype&lt;G&gt; mutate(
+		final Genotype&lt;G&gt; genotype,
+		final double p,
+		final IntRef alterations
+	) {
+<span class="fc" id="L129">		final MSeq&lt;Chromosome&lt;G&gt;&gt; chromosomes = genotype.toSeq().copy();</span>
+
+<span class="fc" id="L131">		alterations.value +=</span>
+<span class="fc" id="L132">			indexes(RandomRegistry.getRandom(), genotype.length(), p)</span>
+<span class="fc" id="L133">				.map(i -&gt; mutate(chromosomes, i, p))</span>
+<span class="fc" id="L134">				.sum();</span>
+
+<span class="fc" id="L136">		return genotype.newInstance(chromosomes.toISeq());</span>
+	}
+
+	private int mutate(final MSeq&lt;Chromosome&lt;G&gt;&gt; c, final int i, final double p) {
+<span class="fc" id="L140">		final Chromosome&lt;G&gt; chromosome = c.get(i);</span>
+<span class="fc" id="L141">		final MSeq&lt;G&gt; genes = chromosome.toSeq().copy();</span>
+
+<span class="fc" id="L143">		final int mutations = mutate(genes, p);</span>
+<span class="fc bfc" id="L144" title="All 2 branches covered.">		if (mutations &gt; 0) {</span>
+<span class="fc" id="L145">			c.set(i, chromosome.newInstance(genes.toISeq()));</span>
+		}
+<span class="fc" id="L147">		return mutations;</span>
+	}
+
+	/**
+	 * &lt;p&gt;
+	 * Template method which gives an (re)implementation of the mutation class
+	 * the possibility to perform its own mutation operation, based on a
+	 * writable gene array and the gene mutation probability &lt;i&gt;p&lt;/i&gt;.
+	 *
+	 * @param genes the genes to mutate.
+	 * @param p the gene mutation probability.
+	 * @return the number of performed mutations
+	 */
+	protected int mutate(final MSeq&lt;G&gt; genes, final double p) {
+<span class="fc" id="L161">		return (int)indexes(RandomRegistry.getRandom(), genes.length(), p)</span>
+<span class="fc" id="L162">			.peek(i -&gt; genes.set(i, genes.get(i).newInstance()))</span>
+<span class="fc" id="L163">			.count();</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="nc" id="L168">		return Hash.of(getClass()).and(super.hashCode()).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc" id="L173">		return Equality.of(this, obj).test(super::equals);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="nc" id="L178">		return format(&quot;%s[p=%f]&quot;, getClass().getSimpleName(), _probability);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

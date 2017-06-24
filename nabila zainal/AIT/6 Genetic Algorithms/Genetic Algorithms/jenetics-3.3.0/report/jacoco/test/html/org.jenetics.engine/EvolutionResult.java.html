@@ -1,0 +1,420 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>EvolutionResult.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.engine</a> &gt; <span class="el_source">EvolutionResult.java</span></div><h1>EvolutionResult.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.engine;
+
+import static java.util.Objects.requireNonNull;
+import static org.jenetics.internal.util.Equality.eq;
+import static org.jenetics.internal.util.require.safe;
+
+import java.io.Serializable;
+import java.util.function.Supplier;
+import java.util.stream.Collector;
+
+import org.jenetics.internal.util.Hash;
+import org.jenetics.internal.util.Lazy;
+
+import org.jenetics.Gene;
+import org.jenetics.Genotype;
+import org.jenetics.Optimize;
+import org.jenetics.Phenotype;
+import org.jenetics.Population;
+import org.jenetics.stat.MinMax;
+
+/**
+ * Represents a state of the GA after an evolution step.
+ *
+ * @see EvolutionStart
+ *
+ * @param &lt;G&gt; the gene type
+ * @param &lt;C&gt; the fitness type
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.0
+ * @version 3.0
+ */
+public final class EvolutionResult&lt;
+	G extends Gene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+	implements Comparable&lt;EvolutionResult&lt;G, C&gt;&gt;, Serializable
+{
+	private static final long serialVersionUID = 1L;
+
+	private final Optimize _optimize;
+	private final Population&lt;G, C&gt; _population;
+	private final long _generation;
+	private final long _totalGenerations;
+
+	private final EvolutionDurations _durations;
+	private final int _killCount;
+	private final int _invalidCount;
+	private final int _alterCount;
+
+	private final Lazy&lt;Phenotype&lt;G, C&gt;&gt; _best;
+	private final Lazy&lt;Phenotype&lt;G, C&gt;&gt; _worst;
+
+	private EvolutionResult(
+		final Optimize optimize,
+		final Population&lt;G, C&gt; population,
+		final long generation,
+		final long totalGenerations,
+		final EvolutionDurations durations,
+		final int killCount,
+		final int invalidCount,
+		final int alterCount
+<span class="fc" id="L82">	) {</span>
+<span class="fc" id="L83">		_optimize = requireNonNull(optimize);</span>
+<span class="fc" id="L84">		_population = requireNonNull(population);</span>
+<span class="fc" id="L85">		_generation = generation;</span>
+<span class="fc" id="L86">		_totalGenerations = totalGenerations;</span>
+<span class="fc" id="L87">		_durations = requireNonNull(durations);</span>
+<span class="fc" id="L88">		_killCount = killCount;</span>
+<span class="fc" id="L89">		_invalidCount = invalidCount;</span>
+<span class="fc" id="L90">		_alterCount = alterCount;</span>
+
+<span class="fc" id="L92">		_best = Lazy.of((Supplier&lt;Phenotype&lt;G, C&gt;&gt; &amp; Serializable)this::best);</span>
+<span class="fc" id="L93">		_worst = Lazy.of((Supplier&lt;Phenotype&lt;G, C&gt;&gt; &amp; Serializable)this::worst);</span>
+<span class="fc" id="L94">	}</span>
+
+	private Phenotype&lt;G, C&gt; best() {
+<span class="fc" id="L97">		return _population.stream().max(_optimize.ascending()).orElse(null);</span>
+	}
+
+	private Phenotype&lt;G, C&gt; worst() {
+<span class="fc" id="L101">		return _population.stream().min(_optimize.ascending()).orElse(null);</span>
+	}
+
+	/**
+	 * Return the optimization strategy used.
+	 *
+	 * @return the optimization strategy used
+	 */
+	public Optimize getOptimize() {
+<span class="fc" id="L110">		return _optimize;</span>
+	}
+
+	/**
+	 * Return the population after the evolution step.
+	 *
+	 * @return the population after the evolution step
+	 */
+	public Population&lt;G, C&gt; getPopulation() {
+<span class="nc" id="L119">		return _population;</span>
+	}
+
+	/**
+	 * The current generation.
+	 *
+	 * @return the current generation
+	 */
+	public long getGeneration() {
+<span class="nc" id="L128">		return _generation;</span>
+	}
+
+	/**
+	 * Return the generation count evaluated so far.
+	 *
+	 * @return the total number of generations evaluated so far
+	 */
+	public long getTotalGenerations() {
+<span class="fc" id="L137">		return _totalGenerations;</span>
+	}
+
+	/**
+	 * Return the timing (meta) information of the evolution step.
+	 *
+	 * @return the timing (meta) information of the evolution step
+	 */
+	public EvolutionDurations getDurations() {
+<span class="nc" id="L146">		return _durations;</span>
+	}
+
+	/**
+	 * Return the number of killed individuals.
+	 *
+	 * @return the number of killed individuals
+	 */
+	public int getKillCount() {
+<span class="nc" id="L155">		return _killCount;</span>
+	}
+
+	/**
+	 * Return the number of invalid individuals.
+	 *
+	 * @return the number of invalid individuals
+	 */
+	public int getInvalidCount() {
+<span class="fc" id="L164">		return _invalidCount;</span>
+	}
+
+	/**
+	 * The number of altered individuals.
+	 *
+	 * @return the number of altered individuals
+	 */
+	public int getAlterCount() {
+<span class="nc" id="L173">		return _alterCount;</span>
+	}
+
+	/**
+	 * Return the best {@code Phenotype} of the result population.
+	 *
+	 * @return the best {@code Phenotype} of the result population
+	 */
+	public Phenotype&lt;G, C&gt; getBestPhenotype() {
+<span class="fc" id="L182">		return _best.get();</span>
+	}
+
+	/**
+	 * Return the worst {@code Phenotype} of the result population.
+	 *
+	 * @return the worst {@code Phenotype} of the result population
+	 */
+	public Phenotype&lt;G, C&gt; getWorstPhenotype() {
+<span class="nc" id="L191">		return _worst.get();</span>
+	}
+
+	/**
+	 * Return the best population fitness.
+	 *
+	 * @return The best population fitness.
+	 */
+	public C getBestFitness() {
+<span class="pc bpc" id="L200" title="1 of 2 branches missed.">		return _best.get() != null ? _best.get().getFitness() : null;</span>
+	}
+
+	/**
+	 * Return the worst population fitness.
+	 *
+	 * @return The worst population fitness.
+	 */
+	public C getWorstFitness() {
+<span class="pc bpc" id="L209" title="1 of 2 branches missed.">		return _worst.get() != null ? _worst.get().getFitness() : null;</span>
+	}
+
+	/**
+	 * Return the next evolution start object with the current population and
+	 * the incremented generation.
+	 *
+	 * @return the next evolution start object
+	 */
+	EvolutionStart&lt;G, C&gt; next() {
+<span class="fc" id="L219">		return EvolutionStart.of(_population, _generation + 1);</span>
+	}
+
+	/**
+	 * Compare {@code this} evolution result with another one, according the
+	 * populations best individual.
+	 *
+	 * @param other the other evolution result to compare
+	 * @return  a negative integer, zero, or a positive integer as this result
+	 *          is less than, equal to, or greater than the specified result.
+	 */
+	@Override
+	public int compareTo(final EvolutionResult&lt;G, C&gt; other) {
+<span class="fc" id="L232">		return _optimize.compare(_best.get(), other._best.get());</span>
+	}
+
+	private EvolutionResult&lt;G, C&gt; withTotalGenerations(final long total) {
+<span class="fc" id="L236">		return of(</span>
+			_optimize,
+			_population,
+			_generation,
+			total,
+			_durations,
+			_killCount,
+			_invalidCount,
+			_alterCount
+		);
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L250">		return Hash.of(getClass())</span>
+<span class="fc" id="L251">			.and(_optimize)</span>
+<span class="fc" id="L252">			.and(_population)</span>
+<span class="fc" id="L253">			.and(_generation)</span>
+<span class="fc" id="L254">			.and(_totalGenerations)</span>
+<span class="fc" id="L255">			.and(_durations)</span>
+<span class="fc" id="L256">			.and(_killCount)</span>
+<span class="fc" id="L257">			.and(_invalidCount)</span>
+<span class="fc" id="L258">			.and(_alterCount)</span>
+<span class="fc" id="L259">			.and(getBestFitness()).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc bfc" id="L264" title="All 2 branches covered.">		return obj instanceof EvolutionResult&lt;?, ?&gt; &amp;&amp;</span>
+<span class="fc bfc" id="L265" title="All 2 branches covered.">			eq(_optimize, ((EvolutionResult&lt;?, ?&gt;)obj)._optimize) &amp;&amp;</span>
+<span class="fc bfc" id="L266" title="All 2 branches covered.">			eq(_population, ((EvolutionResult&lt;?, ?&gt;)obj)._population) &amp;&amp;</span>
+<span class="pc bpc" id="L267" title="1 of 2 branches missed.">			eq(_generation, ((EvolutionResult&lt;?, ?&gt;)obj)._generation) &amp;&amp;</span>
+<span class="pc bpc" id="L268" title="1 of 2 branches missed.">			eq(_totalGenerations, ((EvolutionResult&lt;?, ?&gt;)obj)._totalGenerations) &amp;&amp;</span>
+<span class="pc bpc" id="L269" title="1 of 2 branches missed.">			eq(_durations, ((EvolutionResult&lt;?, ?&gt;)obj)._durations) &amp;&amp;</span>
+<span class="pc bpc" id="L270" title="1 of 2 branches missed.">			eq(_killCount, ((EvolutionResult&lt;?, ?&gt;)obj)._killCount) &amp;&amp;</span>
+<span class="pc bpc" id="L271" title="1 of 2 branches missed.">			eq(_invalidCount, ((EvolutionResult&lt;?, ?&gt;)obj)._invalidCount) &amp;&amp;</span>
+<span class="pc bpc" id="L272" title="1 of 2 branches missed.">			eq(_alterCount, ((EvolutionResult&lt;?, ?&gt;)obj)._alterCount) &amp;&amp;</span>
+<span class="pc bpc" id="L273" title="1 of 2 branches missed.">			eq(getBestFitness(), ((EvolutionResult&lt;?, ?&gt;)obj).getBestFitness());</span>
+	}
+
+
+	/* *************************************************************************
+	 *  Some static collector/factory methods.
+	 * ************************************************************************/
+
+	/**
+	 * Return a collector which collects the best result of an evolution stream.
+	 *
+	 * @param &lt;G&gt; the gene type
+	 * @param &lt;C&gt; the fitness type
+	 * @return a collector which collects the best result of an evolution stream
+	 */
+	public static &lt;G extends Gene&lt;?, G&gt;, C extends Comparable&lt;? super C&gt;&gt;
+	Collector&lt;EvolutionResult&lt;G, C&gt;, ?, EvolutionResult&lt;G, C&gt;&gt;
+	toBestEvolutionResult() {
+<span class="fc" id="L291">		return Collector.of(</span>
+			MinMax::&lt;EvolutionResult&lt;G, C&gt;&gt;of,
+			MinMax::accept,
+			MinMax::combine,
+			mm -&gt; mm.getMax().withTotalGenerations(mm.getCount())
+		);
+	}
+
+	/**
+	 * Return a collector which collects the best phenotype of an evolution
+	 * stream.
+	 *
+	 * @param &lt;G&gt; the gene type
+	 * @param &lt;C&gt; the fitness type
+	 * @return a collector which collects the best phenotype of an evolution
+	 *         stream
+	 */
+	public static &lt;G extends Gene&lt;?, G&gt;, C extends Comparable&lt;? super C&gt;&gt;
+	Collector&lt;EvolutionResult&lt;G, C&gt;, ?, Phenotype&lt;G, C&gt;&gt;
+	toBestPhenotype() {
+<span class="fc" id="L311">		return Collector.of(</span>
+			MinMax::&lt;EvolutionResult&lt;G, C&gt;&gt;of,
+			MinMax::accept,
+			MinMax::combine,
+			mm -&gt; safe(() -&gt; mm.getMax().getBestPhenotype())
+		);
+	}
+
+	/**
+	 * Return a collector which collects the best genotype of an evolution
+	 * stream.
+	 *
+	 * @param &lt;G&gt; the gene type
+	 * @param &lt;C&gt; the fitness type
+	 * @return a collector which collects the best genotype of an evolution
+	 *         stream
+	 */
+	public static &lt;G extends Gene&lt;?, G&gt;, C extends Comparable&lt;? super C&gt;&gt;
+	Collector&lt;EvolutionResult&lt;G, C&gt;, ?, Genotype&lt;G&gt;&gt;
+	toBestGenotype() {
+<span class="fc" id="L331">		return Collector.of(</span>
+			MinMax::&lt;EvolutionResult&lt;G, C&gt;&gt;of,
+			MinMax::accept,
+			MinMax::combine,
+			mm -&gt; safe(() -&gt; mm.getMax().getBestPhenotype().getGenotype())
+		);
+	}
+
+	/**
+	 * Return an new {@code EvolutionResult} object with the given values.
+	 *
+	 * @param optimize the optimization strategy used
+	 * @param population the population after the evolution step
+	 * @param generation the current generation
+	 * @param totalGenerations the overall number of generations
+	 * @param durations the timing (meta) information
+	 * @param killCount the number of individuals which has been killed
+	 * @param invalidCount the number of individuals which has been removed as
+	 *        invalid
+	 * @param alterCount the number of individuals which has been altered
+	 * @param &lt;G&gt; the gene type
+	 * @param &lt;C&gt; the fitness type
+	 * @return an new evolution result object
+	 * @throws java.lang.NullPointerException if one of the parameters is
+	 *         {@code null}
+	 */
+	public static &lt;G extends Gene&lt;?, G&gt;, C extends Comparable&lt;? super C&gt;&gt;
+	EvolutionResult&lt;G, C&gt; of(
+		final Optimize optimize,
+		final Population&lt;G, C&gt; population,
+		final long generation,
+		final long totalGenerations,
+		final EvolutionDurations durations,
+		final int killCount,
+		final int invalidCount,
+		final int alterCount
+	) {
+<span class="fc" id="L368">		return new EvolutionResult&lt;&gt;(</span>
+			optimize,
+			population,
+			generation,
+			totalGenerations,
+			durations,
+			killCount,
+			invalidCount,
+			alterCount
+		);
+	}
+
+	/**
+	 * Return an new {@code EvolutionResult} object with the given values.
+	 *
+	 * @param optimize the optimization strategy used
+	 * @param population the population after the evolution step
+	 * @param generation the current generation
+	 * @param durations the timing (meta) information
+	 * @param killCount the number of individuals which has been killed
+	 * @param invalidCount the number of individuals which has been removed as
+	 *        invalid
+	 * @param alterCount the number of individuals which has been altered
+	 * @param &lt;G&gt; the gene type
+	 * @param &lt;C&gt; the fitness type
+	 * @return an new evolution result object
+	 * @throws java.lang.NullPointerException if one of the parameters is
+	 *         {@code null}
+	 */
+	public static &lt;G extends Gene&lt;?, G&gt;, C extends Comparable&lt;? super C&gt;&gt;
+	EvolutionResult&lt;G, C&gt; of(
+		final Optimize optimize,
+		final Population&lt;G, C&gt; population,
+		final long generation,
+		final EvolutionDurations durations,
+		final int killCount,
+		final int invalidCount,
+		final int alterCount
+	) {
+<span class="fc" id="L407">		return new EvolutionResult&lt;&gt;(</span>
+			optimize,
+			population,
+			generation,
+			generation,
+			durations,
+			killCount,
+			invalidCount,
+			alterCount
+		);
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

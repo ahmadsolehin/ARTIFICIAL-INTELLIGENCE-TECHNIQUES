@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>ExponentialRankSelector.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">ExponentialRankSelector.java</span></div><h1>ExponentialRankSelector.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.lang.Math.pow;
+import static java.lang.String.format;
+
+import org.jenetics.internal.util.Hash;
+
+/**
+ * &lt;p&gt;
+ * An alternative to the &quot;weak&quot; {@code LinearRankSelector} is to assign
+ * survival probabilities to the sorted individuals using an exponential
+ * function.
+ * &lt;/p&gt;
+ * &lt;p&gt;&lt;img
+ *        src=&quot;doc-files/exponential-rank-selector.gif&quot;
+ *        alt=&quot;P(i)=\left(c-1\right)\frac{c^{i-1}}{c^{N}-1}&quot;
+ *     &gt;,
+ * &lt;/p&gt;
+ * where &lt;i&gt;c&lt;/i&gt; must within the range {@code [0..1)}.
+ *
+ * &lt;p&gt;
+ * A small value of &lt;i&gt;c&lt;/i&gt; increases the probability of the best phenotypes to
+ * be selected. If &lt;i&gt;c&lt;/i&gt; is set to zero, the selection probability of the best
+ * phenotype is set to one. The selection probability of all other phenotypes is
+ * zero. A value near one equalizes the selection probabilities.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * This selector sorts the population in descending order while calculating the
+ * selection probabilities.
+ * &lt;/p&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 2.0
+ */
+<span class="pc bpc" id="L55" title="1 of 2 branches missed.">public final class ExponentialRankSelector&lt;</span>
+	G extends Gene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+	extends ProbabilitySelector&lt;G, C&gt;
+{
+
+	private final double _c;
+
+	/**
+	 * Create a new exponential rank selector.
+	 *
+	 * @param c the &lt;i&gt;c&lt;/i&gt; value.
+	 * @throws IllegalArgumentException if {@code c} is not within the range
+	 *         {@code [0..1)}.
+	 */
+	public ExponentialRankSelector(final double c) {
+<span class="fc" id="L72">		super(true);</span>
+
+<span class="pc bpc" id="L74" title="2 of 4 branches missed.">		if (c &lt; 0.0 || c &gt;= 1.0) {</span>
+<span class="nc" id="L75">			throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L76">				&quot;Value %s is out of range [0..1): &quot;, c</span>
+			));
+		}
+<span class="fc" id="L79">		_c = c;</span>
+<span class="fc" id="L80">	}</span>
+
+	/**
+	 * Create a new selector with default value of 0.975.
+	 */
+	public ExponentialRankSelector() {
+<span class="fc" id="L86">		this(0.975);</span>
+<span class="fc" id="L87">	}</span>
+
+	/**
+	 * This method sorts the population in descending order while calculating the
+	 * selection probabilities. (The method {@link Population#populationSort()} is called
+	 * by this method.)
+	 */
+	@Override
+	protected double[] probabilities(
+		final Population&lt;G, C&gt; population,
+		final int count
+	) {
+<span class="pc bpc" id="L99" title="2 of 4 branches missed.">		assert population != null : &quot;Population must not be null. &quot;;</span>
+<span class="pc bpc" id="L100" title="2 of 4 branches missed.">		assert !population.isEmpty() : &quot;Population is empty.&quot;;</span>
+<span class="pc bpc" id="L101" title="2 of 4 branches missed.">		assert count &gt; 0 : &quot;Population to select must be greater than zero. &quot;;</span>
+
+<span class="fc" id="L103">		final double N = population.size();</span>
+<span class="fc" id="L104">		final double[] probabilities = new double[population.size()];</span>
+
+<span class="fc" id="L106">		final double b = (_c - 1.0)/(pow(_c, N) - 1.0);</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">		for (int i = 0; i &lt; probabilities.length; ++i) {</span>
+<span class="fc" id="L108">			probabilities[i] = pow(_c, i)*b;</span>
+		}
+
+<span class="fc" id="L111">		return probabilities;</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L116">		return Hash.of(getClass()).and(_c).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc bfc" id="L121" title="All 2 branches covered.">		return obj instanceof ExponentialRankSelector &amp;&amp;</span>
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">			eq(((ExponentialRankSelector)obj)._c, _c);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L127">		return format(&quot;%s[c=%f]&quot;, getClass().getSimpleName(), _c);</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

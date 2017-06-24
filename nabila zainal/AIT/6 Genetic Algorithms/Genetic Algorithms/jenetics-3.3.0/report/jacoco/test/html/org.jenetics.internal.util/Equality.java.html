@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Equality.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.util</a> &gt; <span class="el_source">Equality.java</span></div><h1>Equality.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.util;
+
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.function.Predicate;
+
+import org.jenetics.util.Seq;
+
+/**
+ * Helper object for calculating object equality.
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.0
+ * @version 3.0
+ */
+public final class Equality {
+<span class="nc" id="L36">	private Equality() {require.noInstance();}</span>
+
+<span class="fc" id="L38">	public static final Predicate&lt;Object&gt; TRUE = a -&gt; true;</span>
+
+	/**
+	 * Create a new {@code Equality} object for testing object equality.
+	 *
+	 * @param self the {@code this} object to test; must not be {@code null}
+	 * @param other the {@code other} object to test; maybe {@code null}
+	 * @param &lt;T&gt; the object type
+	 * @return the {@code Predicate} object for equality testing
+	 * @throws java.lang.NullPointerException if the {@code self} parameter is
+	 *         {@code null}
+	 */
+	@SuppressWarnings(&quot;unchecked&quot;)
+	public static &lt;T&gt; Predicate&lt;Predicate&lt;T&gt;&gt;
+	of(final T self, final Object other) {
+<span class="fc" id="L53">		Objects.requireNonNull(self);</span>
+<span class="pc bpc" id="L54" title="1 of 4 branches missed.">		return self == other ?</span>
+			p -&gt; true :
+<span class="fc bfc" id="L56" title="All 2 branches covered.">			other == null || self.getClass() != other.getClass() ?</span>
+				p -&gt; false : p -&gt; p.test((T)other);
+	}
+
+	/**
+	 * Check if the given arguments are from the same type.
+	 *
+	 * @param self the {@code this} object to test; must not be {@code null}
+	 * @param other the {@code other} object to test; maybe {@code null}
+	 * @return {@code true} if the two objects are from the same type
+	 * @throws java.lang.NullPointerException if the {@code self} parameter is
+	 *         {@code null}
+	 */
+	public static boolean ofType(final Object self, final Object other) {
+<span class="fc" id="L70">		Objects.requireNonNull(self);</span>
+<span class="pc bpc" id="L71" title="1 of 4 branches missed.">		return self == other ||</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">			other != null &amp;&amp; self.getClass() == other.getClass();</span>
+	}
+
+	/**
+	 * Compares the two given {@code boolean} values.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final boolean a, final boolean b) {
+<span class="nc bnc" id="L84" title="All 2 branches missed.">		return a == b;</span>
+	}
+
+	/**
+	 * Compares the two given {@code boolean} arrays.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final boolean[] a, final boolean[] b) {
+<span class="nc" id="L96">		return Arrays.equals(a, b);</span>
+	}
+
+	/**
+	 * Compares the two given {@code byte} values.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final byte a, final byte b) {
+<span class="nc bnc" id="L108" title="All 2 branches missed.">		return a == b;</span>
+	}
+
+	/**
+	 * Compares the two given {@code byte} arrays.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final byte[] a, final byte[] b) {
+<span class="nc" id="L120">		return Arrays.equals(a, b);</span>
+	}
+
+	/**
+	 * Compares the two given {@code char} values.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final char a, final char b) {
+<span class="nc bnc" id="L132" title="All 2 branches missed.">		return a == b;</span>
+	}
+
+	/**
+	 * Compares the two given {@code char} arrays.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final char[] a, final char[] b) {
+<span class="fc" id="L144">		return Arrays.equals(a, b);</span>
+	}
+
+	/**
+	 * Compares the two given {@code short} values.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final short a, final short b) {
+<span class="nc bnc" id="L156" title="All 2 branches missed.">		return a == b;</span>
+	}
+
+	/**
+	 * Compares the two given {@code short} arrays.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final short[] a, final short[] b) {
+<span class="nc" id="L168">		return Arrays.equals(a, b);</span>
+	}
+
+	/**
+	 * Compares the two given {@code int} values.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final int a, final int b) {
+<span class="fc bfc" id="L180" title="All 2 branches covered.">		return a == b;</span>
+	}
+
+	/**
+	 * Compares the two given {@code int} arrays.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final int[] a, final int[] b) {
+<span class="nc" id="L192">		return Arrays.equals(a, b);</span>
+	}
+
+	/**
+	 * Compares the two given {@code long} values.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final long a, final long b) {
+<span class="fc bfc" id="L204" title="All 2 branches covered.">		return a == b;</span>
+	}
+
+	/**
+	 * Compares the two given {@code long} arrays.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final long[] a, final long[] b) {
+<span class="nc" id="L216">		return Arrays.equals(a, b);</span>
+	}
+
+	/**
+	 * Compares the two given {@code float} values.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final float a, final float b) {
+<span class="nc bnc" id="L228" title="All 2 branches missed.">		return Float.floatToIntBits(a) == Float.floatToIntBits(b);</span>
+	}
+
+	/**
+	 * Compares the two given {@code float} arrays.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final float[] a, final float[] b) {
+<span class="nc" id="L240">		return Arrays.equals(a, b);</span>
+	}
+
+	/**
+	 * Compares the two given {@code double} values.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final double a, final double b) {
+<span class="fc bfc" id="L252" title="All 2 branches covered.">		return Double.doubleToLongBits(a) == Double.doubleToLongBits(b);</span>
+	}
+
+	/**
+	 * Compares the two given {@code double} arrays.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final double[] a, final double[] b) {
+<span class="nc" id="L264">		return Arrays.equals(a, b);</span>
+	}
+
+	/**
+	 * Compares the two given {@code Enum} values.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final Enum&lt;?&gt; a, final Enum&lt;?&gt; b) {
+<span class="fc bfc" id="L276" title="All 2 branches covered.">		return a == b;</span>
+	}
+
+	/**
+	 * Compares the two given {@code Object} values.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final Object a, final Object b) {
+<span class="pc bpc" id="L288" title="3 of 4 branches missed.">		return a != null ? a.equals(b) : b == null;</span>
+	}
+
+	/**
+	 * Compares the two given {@code Object} arrays.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final Object[] a, final Object[] b) {
+<span class="fc" id="L300">		return Arrays.equals(a, b);</span>
+	}
+
+	/**
+	 * Compares the two given {@code Seq} values.
+	 *
+	 * @param a first value to compare.
+	 * @param b second value to compare.
+	 * @return {@code true} if the given values are equal, {@code false}
+	 *          otherwise.
+	 */
+	public static boolean eq(final Seq&lt;?&gt; a, final Seq&lt;?&gt; b) {
+<span class="fc" id="L312">		return Seq.equals(a, b);</span>
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

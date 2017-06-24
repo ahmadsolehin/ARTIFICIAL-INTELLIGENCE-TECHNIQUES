@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>TruncationSelector.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics</a> &gt; <span class="el_source">TruncationSelector.java</span></div><h1>TruncationSelector.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics;
+
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+
+import org.jenetics.internal.util.Equality;
+import org.jenetics.internal.util.Hash;
+
+/**
+ * In truncation selection individuals are sorted according to their fitness.
+ * Only the n  best individuals are selected. The truncation selection is a very
+ * basic selection algorithm. It has it's strength in fast selecting individuals
+ * in large populations, but is not very often used in practice.
+ *
+ * @see &lt;a href=&quot;http://en.wikipedia.org/wiki/Truncation_selection&quot;&gt;
+ *          Wikipedia: Truncation selection
+ *      &lt;/a&gt;
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 1.0
+ * @version 2.0
+ */
+public final class TruncationSelector&lt;
+	G extends Gene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+	implements Selector&lt;G, C&gt;
+{
+
+	/**
+	 * Create a new TruncationSelector object.
+	 */
+<span class="fc" id="L52">	public TruncationSelector() {</span>
+<span class="fc" id="L53">	}</span>
+
+	/**
+	 * This method sorts the population in descending order while calculating
+	 * the selection probabilities. (The method
+	 * {@link Population#sortWith(java.util.Comparator)} )} is called by this
+	 * method.) If the selection size is greater the the population size, the
+	 * whole population is duplicated until the desired sample size is reached.
+	 *
+	 * @throws NullPointerException if the {@code population} is {@code null}.
+	 */
+	@Override
+	public Population&lt;G, C&gt; select(
+		final Population&lt;G, C&gt; population,
+		final int count,
+		final Optimize opt
+	) {
+<span class="fc" id="L70">		requireNonNull(population, &quot;Population&quot;);</span>
+<span class="fc" id="L71">		requireNonNull(opt, &quot;Optimization&quot;);</span>
+<span class="fc bfc" id="L72" title="All 2 branches covered.">		if (count &lt; 0) {</span>
+<span class="fc" id="L73">			throw new IllegalArgumentException(format(</span>
+				&quot;Selection count must be greater or equal then zero, but was %s&quot;,
+<span class="fc" id="L75">				count</span>
+			));
+		}
+
+<span class="fc" id="L79">		final Population&lt;G, C&gt; selection = new Population&lt;&gt;(count);</span>
+<span class="fc bfc" id="L80" title="All 4 branches covered.">		if (count &gt; 0 &amp;&amp; !population.isEmpty()) {</span>
+<span class="fc" id="L81">			final Population&lt;G, C&gt; copy = population.copy();</span>
+<span class="fc" id="L82">			copy.sortWith(opt.&lt;C&gt;descending());</span>
+
+<span class="fc" id="L84">			int size = count;</span>
+			do {
+<span class="fc" id="L86">				final int length = Math.min(copy.size(), size);</span>
+<span class="fc" id="L87">				selection.addAll(copy.subList(0, length));</span>
+<span class="fc" id="L88">				size -= length;</span>
+<span class="fc bfc" id="L89" title="All 2 branches covered.">			} while (size &gt; 0);</span>
+		}
+
+<span class="fc" id="L92">		return selection;</span>
+	}
+
+	@Override
+	public int hashCode() {
+<span class="fc" id="L97">		return Hash.of(getClass()).value();</span>
+	}
+
+	@Override
+	public boolean equals(final Object obj) {
+<span class="fc" id="L102">		return Equality.ofType(this, obj);</span>
+	}
+
+	@Override
+	public String toString() {
+<span class="fc" id="L107">		return getClass().getName();</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

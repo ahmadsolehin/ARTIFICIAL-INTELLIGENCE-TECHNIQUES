@@ -1,0 +1,1343 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Engine.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.engine</a> &gt; <span class="el_source">Engine.java</span></div><h1>Engine.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.engine;
+
+import static java.lang.Math.round;
+import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
+import static org.jenetics.Population.toPopulation;
+import static org.jenetics.internal.util.require.probability;
+
+import java.time.Clock;
+import java.util.Iterator;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+
+import org.jenetics.internal.util.Concurrency;
+import org.jenetics.internal.util.require;
+
+import org.jenetics.Alterer;
+import org.jenetics.Chromosome;
+import org.jenetics.Gene;
+import org.jenetics.Genotype;
+import org.jenetics.Mutator;
+import org.jenetics.Optimize;
+import org.jenetics.Phenotype;
+import org.jenetics.Population;
+import org.jenetics.Selector;
+import org.jenetics.SinglePointCrossover;
+import org.jenetics.TournamentSelector;
+import org.jenetics.util.Copyable;
+import org.jenetics.util.Factory;
+import org.jenetics.util.NanoClock;
+
+/**
+ * Genetic algorithm &lt;em&gt;engine&lt;/em&gt; which is the main class. The following
+ * example shows the main steps in initializing and executing the GA.
+ *
+ * &lt;pre&gt;{@code
+ * public class RealFunction {
+ *    // Definition of the fitness function.
+ *    private static Double eval(final Genotype&lt;DoubleGene&gt; gt) {
+ *        final double x = gt.getGene().doubleValue();
+ *        return cos(0.5 + sin(x)) * cos(x);
+ *    }
+ *
+ *    public static void main(String[] args) {
+ *        // Create/configuring the engine via its builder.
+ *        final Engine&lt;DoubleGene, Double&gt; engine = Engine
+ *            .builder(
+ *                RealFunction::eval,
+ *                DoubleChromosome.of(0.0, 2.0*PI))
+ *            .populationSize(500)
+ *            .optimize(Optimize.MINIMUM)
+ *            .alterers(
+ *                new Mutator&lt;&gt;(0.03),
+ *                new MeanAlterer&lt;&gt;(0.6))
+ *            .build();
+ *
+ *        // Execute the GA (engine).
+ *        final Phenotype&lt;DoubleGene, Double&gt; result = engine.stream()
+ *             // Truncate the evolution stream if no better individual could
+ *             // be found after 5 consecutive generations.
+ *            .limit(bySteadyFitness(5))
+ *             // Terminate the evolution after maximal 100 generations.
+ *            .limit(100)
+ *            .collect(toBestPhenotype());
+ *     }
+ * }
+ * }&lt;/pre&gt;
+ *
+ * The architecture allows to decouple the configuration of the engine from the
+ * execution. The {@code Engine} is configured via the {@code Engine.Builder}
+ * class and can't be changed after creation. The actual &lt;i&gt;evolution&lt;/i&gt; is
+ * performed by the {@link EvolutionStream}, which is created by the
+ * {@code Engine}.
+ * &lt;p&gt;
+ * &lt;em&gt;
+ *     &lt;b&gt;This class is thread safe:&lt;/b&gt;
+ *     No mutable state is maintained by the engine. Therefore it is save to
+ *     create multiple evolution streams with one engine, which may be actually
+ *     used in different threads.
+ * &lt;/em&gt;
+ *
+ * @see Engine.Builder
+ * @see EvolutionStart
+ * @see EvolutionResult
+ * @see EvolutionStream
+ * @see EvolutionStatistics
+ * @see Codec
+ *
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @since 3.0
+ * @version 3.2
+ */
+public final class Engine&lt;
+	G extends Gene&lt;?, G&gt;,
+	C extends Comparable&lt;? super C&gt;
+&gt;
+	implements Function&lt;EvolutionStart&lt;G, C&gt;, EvolutionResult&lt;G, C&gt;&gt;
+{
+
+	// Needed context for population evolving.
+	private final Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; _fitnessFunction;
+	private final Function&lt;? super C, ? extends C&gt; _fitnessScaler;
+	private final Factory&lt;Genotype&lt;G&gt;&gt; _genotypeFactory;
+	private final Selector&lt;G, C&gt; _survivorsSelector;
+	private final Selector&lt;G, C&gt; _offspringSelector;
+	private final Alterer&lt;G, C&gt; _alterer;
+	private final Predicate&lt;? super Phenotype&lt;G, C&gt;&gt; _validator;
+	private final Optimize _optimize;
+	private final int _offspringCount;
+	private final int _survivorsCount;
+	private final long _maximalPhenotypeAge;
+
+	// Execution context for concurrent execution of evolving steps.
+	private final TimedExecutor _executor;
+	private final Clock _clock;
+
+	// Additional parameters.
+	private final int _individualCreationRetries;
+
+
+	/**
+	 * Create a new GA engine with the given parameters.
+	 *
+	 * @param genotypeFactory the genotype factory this GA is working with.
+	 * @param fitnessFunction the fitness function this GA is using.
+	 * @param fitnessScaler the fitness scaler this GA is using.
+	 * @param survivorsSelector the selector used for selecting the survivors
+	 * @param offspringSelector the selector used for selecting the offspring
+	 * @param alterer the alterer used for altering the offspring
+	 * @param validator phenotype validator which can override the default
+	 *        implementation the {@link Phenotype#isValid()} method.
+	 * @param optimize the kind of optimization (minimize or maximize)
+	 * @param offspringCount the number of the offspring individuals
+	 * @param survivorsCount the number of the survivor individuals
+	 * @param maximalPhenotypeAge the maximal age of an individual
+	 * @param executor the executor used for executing the single evolve steps
+	 * @param clock the clock used for calculating the timing results
+	 * @param individualCreationRetries the maximal number of attempts for
+	 *        creating a valid individual.
+	 * @throws NullPointerException if one of the arguments is {@code null}
+	 * @throws IllegalArgumentException if the given integer values are smaller
+	 *         than one.
+	 */
+	Engine(
+		final Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; fitnessFunction,
+		final Function&lt;? super C, ? extends C&gt; fitnessScaler,
+		final Factory&lt;Genotype&lt;G&gt;&gt; genotypeFactory,
+		final Selector&lt;G, C&gt; survivorsSelector,
+		final Selector&lt;G, C&gt; offspringSelector,
+		final Alterer&lt;G, C&gt; alterer,
+		final Predicate&lt;? super Phenotype&lt;G, C&gt;&gt; validator,
+		final Optimize optimize,
+		final int offspringCount,
+		final int survivorsCount,
+		final long maximalPhenotypeAge,
+		final Executor executor,
+		final Clock clock,
+		final int individualCreationRetries
+<span class="fc" id="L184">	) {</span>
+<span class="fc" id="L185">		_fitnessFunction = requireNonNull(fitnessFunction);</span>
+<span class="fc" id="L186">		_fitnessScaler = requireNonNull(fitnessScaler);</span>
+<span class="fc" id="L187">		_genotypeFactory = requireNonNull(genotypeFactory);</span>
+<span class="fc" id="L188">		_survivorsSelector = requireNonNull(survivorsSelector);</span>
+<span class="fc" id="L189">		_offspringSelector = requireNonNull(offspringSelector);</span>
+<span class="fc" id="L190">		_alterer = requireNonNull(alterer);</span>
+<span class="fc" id="L191">		_validator = requireNonNull(validator);</span>
+<span class="fc" id="L192">		_optimize = requireNonNull(optimize);</span>
+
+<span class="fc" id="L194">		_offspringCount = require.positive(offspringCount);</span>
+<span class="fc" id="L195">		_survivorsCount = require.positive(survivorsCount);</span>
+<span class="fc" id="L196">		_maximalPhenotypeAge = require.positive(maximalPhenotypeAge);</span>
+
+<span class="fc" id="L198">		_executor = new TimedExecutor(requireNonNull(executor));</span>
+<span class="fc" id="L199">		_clock = requireNonNull(clock);</span>
+
+<span class="pc bpc" id="L201" title="1 of 2 branches missed.">		if (individualCreationRetries &lt; 0) {</span>
+<span class="nc" id="L202">			throw new IllegalArgumentException(format(</span>
+				&quot;Retry count must not be negative: %d&quot;,
+<span class="nc" id="L204">				individualCreationRetries</span>
+			));
+		}
+<span class="fc" id="L207">		_individualCreationRetries = individualCreationRetries;</span>
+<span class="fc" id="L208">	}</span>
+
+	/**
+	 * Perform one evolution step with the given {@code population} and
+	 * {@code generation}. New phenotypes are created with the fitness function
+	 * and fitness scaler defined by this &lt;em&gt;engine&lt;/em&gt;
+	 * &lt;p&gt;
+	 * &lt;em&gt;This method is thread-safe.&lt;/em&gt;
+	 *
+	 * @see #evolve(EvolutionStart)
+	 *
+	 * @param population the population to evolve
+	 * @param generation the current generation; used for calculating the
+	 *        phenotype age.
+	 * @return the evolution result
+	 * @throws java.lang.NullPointerException if the given {@code population} is
+	 *         {@code null}
+	 * @throws IllegalArgumentException if the given {@code generation} is
+	 *         smaller then one
+	 */
+	public EvolutionResult&lt;G, C&gt; evolve(
+		final Population&lt;G, C&gt; population,
+		final long generation
+	) {
+<span class="nc" id="L232">		return evolve(EvolutionStart.of(population, generation));</span>
+	}
+
+	/**
+	 * Perform one evolution step with the given evolution {@code start} object
+	 * New phenotypes are created with the fitness function and fitness scaler
+	 * defined by this &lt;em&gt;engine&lt;/em&gt;
+	 * &lt;p&gt;
+	 * &lt;em&gt;This method is thread-safe.&lt;/em&gt;
+	 *
+	 * @since 3.1
+	 * @see #evolve(org.jenetics.Population, long)
+	 *
+	 * @param start the evolution start object
+	 * @return the evolution result
+	 * @throws java.lang.NullPointerException if the given evolution
+	 *         {@code start} is {@code null}
+	 */
+	public EvolutionResult&lt;G, C&gt; evolve(final EvolutionStart&lt;G, C&gt; start) {
+<span class="fc" id="L251">		final Timer timer = Timer.of().start();</span>
+
+		// Initial evaluation of the population.
+<span class="fc" id="L254">		final Timer evaluateTimer = Timer.of(_clock).start();</span>
+<span class="fc" id="L255">		evaluate(start.getPopulation());</span>
+<span class="fc" id="L256">		evaluateTimer.stop();</span>
+
+		// Select the offspring population.
+<span class="fc" id="L259">		final CompletableFuture&lt;TimedResult&lt;Population&lt;G, C&gt;&gt;&gt; offspring =</span>
+<span class="fc" id="L260">			_executor.async(() -&gt;</span>
+				selectOffspring(start.getPopulation()),
+				_clock
+			);
+
+		// Select the survivor population.
+<span class="fc" id="L266">		final CompletableFuture&lt;TimedResult&lt;Population&lt;G, C&gt;&gt;&gt; survivors =</span>
+<span class="fc" id="L267">			_executor.async(() -&gt;</span>
+				selectSurvivors(start.getPopulation()),
+				_clock
+			);
+
+		// Altering the offspring population.
+<span class="fc" id="L273">		final CompletableFuture&lt;TimedResult&lt;AlterResult&lt;G, C&gt;&gt;&gt; alteredOffspring =</span>
+<span class="fc" id="L274">			_executor.thenApply(offspring, p -&gt;</span>
+				alter(p.result, start.getGeneration()),
+				_clock
+			);
+
+		// Filter and replace invalid and to old survivor individuals.
+<span class="fc" id="L280">		final CompletableFuture&lt;TimedResult&lt;FilterResult&lt;G, C&gt;&gt;&gt; filteredSurvivors =</span>
+<span class="fc" id="L281">			_executor.thenApply(survivors, pop -&gt;</span>
+				filter(pop.result, start.getGeneration()),
+				_clock
+			);
+
+		// Filter and replace invalid and to old offspring individuals.
+<span class="fc" id="L287">		final CompletableFuture&lt;TimedResult&lt;FilterResult&lt;G, C&gt;&gt;&gt; filteredOffspring =</span>
+<span class="fc" id="L288">			_executor.thenApply(alteredOffspring, pop -&gt;</span>
+				filter(pop.result.population, start.getGeneration()),
+				_clock
+			);
+
+		// Combining survivors and offspring to the new population.
+<span class="fc" id="L294">		final CompletableFuture&lt;Population&lt;G, C&gt;&gt; population =</span>
+<span class="fc" id="L295">			filteredSurvivors.thenCombineAsync(filteredOffspring, (s, o) -&gt; {</span>
+					final Population&lt;G, C&gt; pop = s.result.population;
+					pop.addAll(o.result.population);
+					return pop;
+				},
+<span class="fc" id="L300">				_executor.get()</span>
+			);
+
+		// Evaluate the fitness-function and wait for result.
+<span class="fc" id="L304">		final TimedResult&lt;Population&lt;G, C&gt;&gt; result = population</span>
+<span class="fc" id="L305">			.thenApply(TimedResult.of(this::evaluate, _clock))</span>
+<span class="fc" id="L306">			.join();</span>
+
+<span class="fc" id="L308">		final EvolutionDurations durations = EvolutionDurations.of(</span>
+<span class="fc" id="L309">			offspring.join().duration,</span>
+<span class="fc" id="L310">			survivors.join().duration,</span>
+<span class="fc" id="L311">			alteredOffspring.join().duration,</span>
+<span class="fc" id="L312">			filteredOffspring.join().duration,</span>
+<span class="fc" id="L313">			filteredSurvivors.join().duration,</span>
+<span class="fc" id="L314">			result.duration.plus(evaluateTimer.getTime()),</span>
+<span class="fc" id="L315">			timer.stop().getTime()</span>
+		);
+
+<span class="fc" id="L318">		final int killCount =</span>
+<span class="fc" id="L319">			filteredOffspring.join().result.killCount +</span>
+<span class="fc" id="L320">			filteredSurvivors.join().result.killCount;</span>
+
+<span class="fc" id="L322">		final int invalidCount =</span>
+<span class="fc" id="L323">			filteredOffspring.join().result.invalidCount +</span>
+<span class="fc" id="L324">			filteredSurvivors.join().result.invalidCount;</span>
+
+<span class="fc" id="L326">		return EvolutionResult.of(</span>
+			_optimize,
+			result.result,
+<span class="fc" id="L329">			start.getGeneration(),</span>
+			durations,
+			killCount,
+			invalidCount,
+<span class="fc" id="L333">			alteredOffspring.join().result.alterCount</span>
+		);
+	}
+
+	/**
+	 * This method is an &lt;i&gt;alias&lt;/i&gt; for the {@link #evolve(EvolutionStart)}
+	 * method.
+	 *
+	 * @since 3.1
+	 */
+	@Override
+	public EvolutionResult&lt;G, C&gt; apply(final EvolutionStart&lt;G, C&gt; start) {
+<span class="nc" id="L345">		return evolve(start);</span>
+	}
+
+	// Selects the survivors population. A new population object is returned.
+	private Population&lt;G, C&gt; selectSurvivors(final Population&lt;G, C&gt; population) {
+<span class="fc" id="L350">		return _survivorsSelector.select(population, _survivorsCount, _optimize);</span>
+	}
+
+	// Selects the offspring population. A new population object is returned.
+	private Population&lt;G, C&gt; selectOffspring(final Population&lt;G, C&gt; population) {
+<span class="fc" id="L355">		return _offspringSelector.select(population, _offspringCount, _optimize);</span>
+	}
+
+	// Filters out invalid and to old individuals. Filtering is done in place.
+	private FilterResult&lt;G, C&gt; filter(
+		final Population&lt;G, C&gt; population,
+		final long generation
+	) {
+<span class="fc" id="L363">		int killCount = 0;</span>
+<span class="fc" id="L364">		int invalidCount = 0;</span>
+
+<span class="fc bfc" id="L366" title="All 2 branches covered.">		for (int i = 0, n = population.size(); i &lt; n; ++i) {</span>
+<span class="fc" id="L367">			final Phenotype&lt;G, C&gt; individual = population.get(i);</span>
+
+<span class="fc bfc" id="L369" title="All 2 branches covered.">			if (!_validator.test(individual)) {</span>
+<span class="fc" id="L370">				population.set(i, newPhenotype(generation));</span>
+<span class="fc" id="L371">				++invalidCount;</span>
+<span class="pc bpc" id="L372" title="1 of 2 branches missed.">			} else if (individual.getAge(generation) &gt; _maximalPhenotypeAge) {</span>
+<span class="nc" id="L373">				population.set(i, newPhenotype(generation));</span>
+<span class="nc" id="L374">				++killCount;</span>
+			}
+		}
+
+<span class="fc" id="L378">		return new FilterResult&lt;&gt;(population, killCount, invalidCount);</span>
+	}
+
+	// Create a new and valid phenotype
+	private Phenotype&lt;G, C&gt; newPhenotype(final long generation) {
+<span class="fc" id="L383">		int count = 0;</span>
+		Phenotype&lt;G, C&gt; phenotype;
+		do {
+<span class="fc" id="L386">			phenotype = Phenotype.of(</span>
+<span class="fc" id="L387">				_genotypeFactory.newInstance(),</span>
+				generation,
+				_fitnessFunction,
+				_fitnessScaler
+			);
+<span class="fc bfc" id="L392" title="All 2 branches covered.">		} while (++count &lt; _individualCreationRetries &amp;&amp;</span>
+<span class="fc bfc" id="L393" title="All 2 branches covered.">				!_validator.test(phenotype));</span>
+
+<span class="fc" id="L395">		return phenotype;</span>
+	}
+
+	// Alters the given population. The altering is done in place.
+	private AlterResult&lt;G, C&gt; alter(
+		final Population&lt;G,C&gt; population,
+		final long generation
+	) {
+<span class="fc" id="L403">		return new AlterResult&lt;&gt;(</span>
+			population,
+<span class="fc" id="L405">			_alterer.alter(population, generation)</span>
+		);
+	}
+
+	// Evaluates the fitness function of the give population concurrently.
+	private Population&lt;G, C&gt; evaluate(final Population&lt;G, C&gt; population) {
+<span class="pc" id="L411">		try (Concurrency c = Concurrency.with(_executor.get())) {</span>
+<span class="fc" id="L412">			c.execute(population);</span>
+<span class="pc bpc" id="L413" title="6 of 8 branches missed.">		}</span>
+<span class="fc" id="L414">		return population;</span>
+	}
+
+	/**
+	 * Create a new &lt;b&gt;infinite&lt;/b&gt; evolution iterator with a newly created
+	 * population. This is an alternative way for evolution. It lets the user
+	 * start, stop and resume the evolution process whenever desired.
+	 *
+	 * @return a new &lt;b&gt;infinite&lt;/b&gt; evolution iterator
+	 */
+	public Iterator&lt;EvolutionResult&lt;G, C&gt;&gt; iterator() {
+<span class="nc" id="L425">		return new EvolutionIterator&lt;&gt;(</span>
+			this::evolve,
+			this::evolutionStart
+		);
+	}
+
+	/**
+	 * Create a new &lt;b&gt;infinite&lt;/b&gt; evolution stream with a newly created
+	 * population.
+	 *
+	 * @return a new evolution stream.
+	 */
+	public EvolutionStream&lt;G, C&gt; stream() {
+<span class="fc" id="L438">		return EvolutionStream.of(this::evolutionStart, this::evolve);</span>
+	}
+
+	private EvolutionStart&lt;G, C&gt; evolutionStart() {
+<span class="fc" id="L442">		final int generation = 1;</span>
+<span class="fc" id="L443">		final int size = _offspringCount + _survivorsCount;</span>
+
+<span class="fc" id="L445">		final Population&lt;G, C&gt; population = new Population&lt;G, C&gt;(size)</span>
+<span class="fc" id="L446">			.fill(() -&gt; newPhenotype(generation), size);</span>
+
+<span class="fc" id="L448">		return EvolutionStart.of(population, generation);</span>
+	}
+
+	/**
+	 * Create a new &lt;b&gt;infinite&lt;/b&gt; evolution stream with the given initial
+	 * individuals. If an empty {@code Iterable} is given, the engines genotype
+	 * factory is used for creating the population.
+	 *
+	 * @param genotypes the initial individuals used for the evolution stream.
+	 *        Missing individuals are created and individuals not needed are
+	 *        skipped.
+	 * @return a new evolution stream.
+	 * @throws java.lang.NullPointerException if the given {@code genotypes} is
+	 *         {@code null}.
+	 */
+	public EvolutionStream&lt;G, C&gt; stream(
+		final Iterable&lt;Genotype&lt;G&gt;&gt; genotypes
+	) {
+<span class="nc" id="L466">		requireNonNull(genotypes);</span>
+
+<span class="nc" id="L468">		return EvolutionStream.of(</span>
+			() -&gt; evolutionStart(genotypes, 1),
+			this::evolve
+		);
+	}
+
+	/**
+	 * Create a new &lt;b&gt;infinite&lt;/b&gt; evolution iterator with the given initial
+	 * individuals. If an empty {@code Iterable} is given, the engines genotype
+	 * factory is used for creating the population.
+	 *
+	 * @param genotypes the initial individuals used for the evolution iterator.
+	 *        Missing individuals are created and individuals not needed are
+	 *        skipped.
+	 * @return a new &lt;b&gt;infinite&lt;/b&gt; evolution iterator
+	 * @throws java.lang.NullPointerException if the given {@code genotypes} is
+	 *         {@code null}.
+	 */
+	public Iterator&lt;EvolutionResult&lt;G, C&gt;&gt; iterator(
+		final Iterable&lt;Genotype&lt;G&gt;&gt; genotypes
+	) {
+<span class="nc" id="L489">		requireNonNull(genotypes);</span>
+
+<span class="nc" id="L491">		return new EvolutionIterator&lt;&gt;(</span>
+			this::evolve,
+			() -&gt; evolutionStart(genotypes, 1)
+		);
+	}
+
+	private EvolutionStart&lt;G, C&gt; evolutionStart(
+		final Iterable&lt;Genotype&lt;G&gt;&gt; genotypes,
+		final long generation
+	) {
+<span class="nc" id="L501">		final Stream&lt;Phenotype&lt;G, C&gt;&gt; stream = Stream.concat(</span>
+<span class="nc" id="L502">			StreamSupport.stream(genotypes.spliterator(), false)</span>
+<span class="nc" id="L503">				.map(gt -&gt; Phenotype.of(</span>
+					gt, generation, _fitnessFunction, _fitnessScaler)),
+<span class="nc" id="L505">			Stream.generate(() -&gt; newPhenotype(generation))</span>
+		);
+
+<span class="nc" id="L508">		final Population&lt;G, C&gt; population = stream</span>
+<span class="nc" id="L509">			.limit(getPopulationSize())</span>
+<span class="nc" id="L510">			.collect(toPopulation());</span>
+
+<span class="nc" id="L512">		return EvolutionStart.of(population, generation);</span>
+	}
+
+	/**
+	 * Create a new &lt;b&gt;infinite&lt;/b&gt; evolution stream with the given initial
+	 * population. If an empty {@code Population} is given, the engines genotype
+	 * factory is used for creating the population. The given population might
+	 * be the result of an other engine and this method allows to start the
+	 * evolution with the outcome of an different engine. The fitness function
+	 * and the fitness scaler are replaced by the one defined for this engine.
+	 *
+	 * @param population the initial individuals used for the evolution stream.
+	 *        Missing individuals are created and individuals not needed are
+	 *        skipped.
+	 * @param generation the generation the stream starts from; must be greater
+	 *        than zero.
+	 * @return a new evolution stream.
+	 * @throws java.lang.NullPointerException if the given {@code population} is
+	 *         {@code null}.
+	 * @throws IllegalArgumentException if the given {@code generation} is smaller
+	 *        then one
+	 */
+	public EvolutionStream&lt;G, C&gt; stream(
+		final Population&lt;G, C&gt; population,
+		final long generation
+	) {
+<span class="nc" id="L538">		requireNonNull(population);</span>
+<span class="nc" id="L539">		require.positive(generation);</span>
+
+<span class="nc" id="L541">		return EvolutionStream.of(</span>
+			() -&gt; evolutionStart(population, generation),
+			this::evolve
+		);
+	}
+
+	/**
+	 * Create a new &lt;b&gt;infinite&lt;/b&gt; evolution iterator with the given initial
+	 * population. If an empty {@code Population} is given, the engines genotype
+	 * factory is used for creating the population. The given population might
+	 * be the result of an other engine and this method allows to start the
+	 * evolution with the outcome of an different engine. The fitness function
+	 * and the fitness scaler are replaced by the one defined for this engine.
+	 *
+	 * @param population the initial individuals used for the evolution iterator.
+	 *        Missing individuals are created and individuals not needed are
+	 *        skipped.
+	 * @param generation the generation the iterator starts from; must be greater
+	 *        than zero.
+	 * @return a new &lt;b&gt;infinite&lt;/b&gt; evolution iterator
+	 * @throws java.lang.NullPointerException if the given {@code population} is
+	 *         {@code null}.
+	 * @throws IllegalArgumentException if the given {@code generation} is smaller
+	 *        then one
+	 */
+	public Iterator&lt;EvolutionResult&lt;G, C&gt;&gt; iterator(
+		final Population&lt;G, C&gt; population,
+		final long generation
+	) {
+<span class="nc" id="L570">		requireNonNull(population);</span>
+<span class="nc" id="L571">		require.positive(generation);</span>
+
+<span class="nc" id="L573">		return new EvolutionIterator&lt;&gt;(</span>
+			this::evolve,
+			() -&gt; evolutionStart(population, generation)
+		);
+	}
+
+	private EvolutionStart&lt;G, C&gt; evolutionStart(
+		final Population&lt;G, C&gt; population,
+		final long generation
+	) {
+<span class="nc" id="L583">		final Stream&lt;Phenotype&lt;G, C&gt;&gt; stream = Stream.concat(</span>
+<span class="nc" id="L584">			population.stream()</span>
+<span class="nc" id="L585">				.map(p -&gt; p.newInstance(</span>
+					p.getGeneration(),
+					_fitnessFunction,
+					_fitnessScaler)),
+<span class="nc" id="L589">			Stream.generate(() -&gt; newPhenotype(generation))</span>
+		);
+
+<span class="nc" id="L592">		final Population&lt;G, C&gt; pop = stream</span>
+<span class="nc" id="L593">			.limit(getPopulationSize())</span>
+<span class="nc" id="L594">			.collect(toPopulation());</span>
+
+<span class="nc" id="L596">		return EvolutionStart.of(pop, generation);</span>
+	}
+
+
+
+	/* *************************************************************************
+	 * Property access methods.
+	 **************************************************************************/
+
+	/**
+	 * Return the fitness function of the GA engine.
+	 *
+	 * @return the fitness function
+	 */
+	public Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; getFitnessFunction() {
+<span class="fc" id="L611">		return _fitnessFunction;</span>
+	}
+
+	/**
+	 * Return the fitness scaler of the GA engine.
+	 *
+	 * @return the fitness scaler
+	 */
+	public Function&lt;? super C, ? extends C&gt; getFitnessScaler() {
+<span class="fc" id="L620">		return _fitnessScaler;</span>
+	}
+
+	/**
+	 * Return the used genotype {@link Factory} of the GA. The genotype factory
+	 * is used for creating the initial population and new, random individuals
+	 * when needed (as replacement for invalid and/or died genotypes).
+	 *
+	 * @return the used genotype {@link Factory} of the GA.
+	 */
+	public Factory&lt;Genotype&lt;G&gt;&gt; getGenotypeFactory() {
+<span class="nc" id="L631">		return _genotypeFactory;</span>
+	}
+
+	/**
+	 * Return the used survivor {@link Selector} of the GA.
+	 *
+	 * @return the used survivor {@link Selector} of the GA.
+	 */
+	public Selector&lt;G, C&gt; getSurvivorsSelector() {
+<span class="fc" id="L640">		return _survivorsSelector;</span>
+	}
+
+	/**
+	 * Return the used offspring {@link Selector} of the GA.
+	 *
+	 * @return the used offspring {@link Selector} of the GA.
+	 */
+	public Selector&lt;G, C&gt; getOffspringSelector() {
+<span class="fc" id="L649">		return _offspringSelector;</span>
+	}
+
+	/**
+	 * Return the used {@link Alterer} of the GA.
+	 *
+	 * @return the used {@link Alterer} of the GA.
+	 */
+	public Alterer&lt;G, C&gt; getAlterer() {
+<span class="fc" id="L658">		return _alterer;</span>
+	}
+
+	/**
+	 * Return the number of selected offsprings.
+	 *
+	 * @return the number of selected offsprings
+	 */
+	public int getOffspringCount() {
+<span class="fc" id="L667">		return _offspringCount;</span>
+	}
+
+	/**
+	 * The number of selected survivors.
+	 *
+	 * @return the number of selected survivors
+	 */
+	public int getSurvivorsCount() {
+<span class="fc" id="L676">		return _survivorsCount;</span>
+	}
+
+	/**
+	 * Return the number of individuals of a population.
+	 *
+	 * @return the number of individuals of a population
+	 */
+	public int getPopulationSize() {
+<span class="fc" id="L685">		return _offspringCount + _survivorsCount;</span>
+	}
+
+	/**
+	 * Return the maximal allowed phenotype age.
+	 *
+	 * @return the maximal allowed phenotype age
+	 */
+	public long getMaximalPhenotypeAge() {
+<span class="fc" id="L694">		return _maximalPhenotypeAge;</span>
+	}
+
+	/**
+	 * Return the optimization strategy.
+	 *
+	 * @return the optimization strategy
+	 */
+	public Optimize getOptimize() {
+<span class="fc" id="L703">		return _optimize;</span>
+	}
+
+	/**
+	 * Return the {@link Clock} the engine is using for measuring the execution
+	 * time.
+	 *
+	 * @return the clock used for measuring the execution time
+	 */
+	public Clock getClock() {
+<span class="nc" id="L713">		return _clock;</span>
+	}
+
+	/**
+	 * Return the {@link Executor} the engine is using for executing the
+	 * evolution steps.
+	 *
+	 * @return the executor used for performing the evolution steps
+	 */
+	public Executor getExecutor() {
+<span class="nc" id="L723">		return _executor.get();</span>
+	}
+
+
+	/* *************************************************************************
+	 * Builder methods.
+	 **************************************************************************/
+
+	/**
+	 * Create a new evolution {@code Engine.Builder} initialized with the values
+	 * of the current evolution {@code Engine}. With this method, the evolution
+	 * engine can serve as a template for an new one.
+	 *
+	 * @return a new engine builder
+	 */
+	public Builder&lt;G, C&gt; builder() {
+<span class="nc" id="L739">		return new Builder&lt;&gt;(_genotypeFactory, _fitnessFunction)</span>
+<span class="nc" id="L740">			.alterers(_alterer)</span>
+<span class="nc" id="L741">			.clock(_clock)</span>
+<span class="nc" id="L742">			.executor(_executor.get())</span>
+<span class="nc" id="L743">			.fitnessScaler(_fitnessScaler)</span>
+<span class="nc" id="L744">			.maximalPhenotypeAge(_maximalPhenotypeAge)</span>
+<span class="nc" id="L745">			.offspringFraction((double)_offspringCount/(double)getPopulationSize())</span>
+<span class="nc" id="L746">			.offspringSelector(_offspringSelector)</span>
+<span class="nc" id="L747">			.optimize(_optimize)</span>
+<span class="nc" id="L748">			.phenotypeValidator(_validator)</span>
+<span class="nc" id="L749">			.populationSize(getPopulationSize())</span>
+<span class="nc" id="L750">			.survivorsSelector(_survivorsSelector)</span>
+<span class="nc" id="L751">			.individualCreationRetries(_individualCreationRetries);</span>
+	}
+
+	/**
+	 * Create a new evolution {@code Engine.Builder} with the given fitness
+	 * function and genotype factory.
+	 *
+	 * @param ff the fitness function
+	 * @param genotypeFactory the genotype factory
+	 * @param &lt;G&gt; the gene type
+	 * @param &lt;C&gt; the fitness function result type
+	 * @return a new engine builder
+	 * @throws java.lang.NullPointerException if one of the arguments is
+	 *         {@code null}.
+	 */
+	public static &lt;G extends Gene&lt;?, G&gt;, C extends Comparable&lt;? super C&gt;&gt;
+	Builder&lt;G, C&gt; builder(
+		final Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; ff,
+		final Factory&lt;Genotype&lt;G&gt;&gt; genotypeFactory
+	) {
+<span class="fc" id="L771">		return new Builder&lt;&gt;(genotypeFactory, ff);</span>
+	}
+
+	/**
+	 * Create a new evolution {@code Engine.Builder} with the given fitness
+	 * function and chromosome templates.
+	 *
+	 * @param ff the fitness function
+	 * @param chromosome the first chromosome
+	 * @param chromosomes the chromosome templates
+	 * @param &lt;G&gt; the gene type
+	 * @param &lt;C&gt; the fitness function result type
+	 * @return a new engine builder
+	 * @throws java.lang.NullPointerException if one of the arguments is
+	 *         {@code null}.
+	 */
+	@SafeVarargs
+	public static &lt;G extends Gene&lt;?, G&gt;, C extends Comparable&lt;? super C&gt;&gt;
+	Builder&lt;G, C&gt; builder(
+		final Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; ff,
+		final Chromosome&lt;G&gt; chromosome,
+		final Chromosome&lt;G&gt;... chromosomes
+	) {
+<span class="fc" id="L794">		return new Builder&lt;&gt;(Genotype.of(chromosome, chromosomes), ff);</span>
+	}
+
+	/**
+	 * Create a new evolution {@code Engine.Builder} with the given fitness
+	 * function and problem {@code codec}.
+	 *
+	 * @since 3.2
+	 *
+	 * @param ff the fitness function
+	 * @param codec the problem codec
+	 * @param &lt;T&gt; the fitness function input type
+	 * @param &lt;C&gt; the fitness function result type
+	 * @param &lt;G&gt; the gene type
+	 * @return a new engine builder
+	 * @throws java.lang.NullPointerException if one of the arguments is
+	 *         {@code null}.
+	 */
+	public static &lt;T, C extends Comparable&lt;? super C&gt;, G extends Gene&lt;?, G&gt;&gt;
+	Builder&lt;G, C&gt; builder(
+		final Function&lt;? super T, ? extends C&gt; ff,
+		final Codec&lt;T, G&gt; codec
+	) {
+<span class="fc" id="L817">		return builder(ff.compose(codec.decoder()), codec.encoding());</span>
+	}
+
+
+	/* *************************************************************************
+	 * Inner classes
+	 **************************************************************************/
+
+	/**
+	 * Builder class for building GA {@code Engine} instances.
+	 *
+	 * @see Engine
+	 *
+	 * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+	 * @since 3.0
+	 * @version 3.0
+	 */
+	public static final class Builder&lt;
+		G extends Gene&lt;?, G&gt;,
+		C extends Comparable&lt;? super C&gt;
+	&gt;
+		implements Copyable&lt;Builder&lt;G, C&gt;&gt;
+	{
+
+		// No default values for this properties.
+		private Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; _fitnessFunction;
+		private Factory&lt;Genotype&lt;G&gt;&gt; _genotypeFactory;
+
+		// This are the properties which default values.
+<span class="fc" id="L846">		private Function&lt;? super C, ? extends C&gt; _fitnessScaler = a -&gt; a;</span>
+<span class="fc" id="L847">		private Selector&lt;G, C&gt; _survivorsSelector = new TournamentSelector&lt;&gt;(3);</span>
+<span class="fc" id="L848">		private Selector&lt;G, C&gt; _offspringSelector = new TournamentSelector&lt;&gt;(3);</span>
+<span class="fc" id="L849">		private Alterer&lt;G, C&gt; _alterer = Alterer.of(</span>
+			new SinglePointCrossover&lt;G, C&gt;(0.2),
+			new Mutator&lt;&gt;(0.15)
+		);
+<span class="fc" id="L853">		private Predicate&lt;? super Phenotype&lt;G, C&gt;&gt; _validator = Phenotype::isValid;</span>
+<span class="fc" id="L854">		private Optimize _optimize = Optimize.MAXIMUM;</span>
+<span class="fc" id="L855">		private double _offspringFraction = 0.6;</span>
+<span class="fc" id="L856">		private int _populationSize = 50;</span>
+<span class="fc" id="L857">		private long _maximalPhenotypeAge = 70;</span>
+
+<span class="fc" id="L859">		private Executor _executor = ForkJoinPool.commonPool();</span>
+<span class="fc" id="L860">		private Clock _clock = NanoClock.systemUTC();</span>
+
+<span class="fc" id="L862">		private int _individualCreationRetries = 10;</span>
+
+		private Builder(
+			final Factory&lt;Genotype&lt;G&gt;&gt; genotypeFactory,
+			final Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; fitnessFunction
+<span class="fc" id="L867">		) {</span>
+<span class="fc" id="L868">			_genotypeFactory = requireNonNull(genotypeFactory);</span>
+<span class="fc" id="L869">			_fitnessFunction = requireNonNull(fitnessFunction);</span>
+<span class="fc" id="L870">		}</span>
+
+		/**
+		 * Set the fitness function of the evolution {@code Engine}.
+		 *
+		 * @param function the fitness function to use in the GA {@code Engine}
+		 * @return {@code this} builder, for command chaining
+		 */
+		public Builder&lt;G, C&gt; fitnessFunction(
+			Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; function
+		) {
+<span class="nc" id="L881">			_fitnessFunction = requireNonNull(function);</span>
+<span class="nc" id="L882">			return this;</span>
+		}
+
+		/**
+		 * Set the fitness scaler of the evolution {@code Engine}. &lt;i&gt;Default
+		 * value is set to the identity function.&lt;/i&gt;
+		 *
+		 * @param scaler the fitness scale to use in the GA {@code Engine}
+		 * @return {@code this} builder, for command chaining
+		 */
+		public Builder&lt;G, C&gt; fitnessScaler(
+			final Function&lt;? super C, ? extends C&gt; scaler
+		) {
+<span class="fc" id="L895">			_fitnessScaler = requireNonNull(scaler);</span>
+<span class="fc" id="L896">			return this;</span>
+		}
+
+		/**
+		 * The genotype factory used for creating new individuals.
+		 *
+		 * @param genotypeFactory the genotype factory for creating new
+		 *        individuals.
+		 * @return {@code this} builder, for command chaining
+		 */
+		public Builder&lt;G, C&gt; genotypeFactory(
+			final Factory&lt;Genotype&lt;G&gt;&gt; genotypeFactory
+		) {
+<span class="nc" id="L909">			_genotypeFactory = requireNonNull(genotypeFactory);</span>
+<span class="nc" id="L910">			return this;</span>
+		}
+
+		/**
+		 * The selector used for selecting the offspring population. &lt;i&gt;Default
+		 * values is set to {@code TournamentSelector&lt;&gt;(3)}.&lt;/i&gt;
+		 *
+		 * @param selector used for selecting the offspring population
+		 * @return {@code this} builder, for command chaining
+		 */
+		public Builder&lt;G, C&gt; offspringSelector(
+			final Selector&lt;G, C&gt; selector
+		) {
+<span class="fc" id="L923">			_offspringSelector = requireNonNull(selector);</span>
+<span class="fc" id="L924">			return this;</span>
+		}
+
+		/**
+		 * The selector used for selecting the survivors population. &lt;i&gt;Default
+		 * values is set to {@code TournamentSelector&lt;&gt;(3)}.&lt;/i&gt;
+		 *
+		 * @param selector used for selecting survivors population
+		 * @return {@code this} builder, for command chaining
+		 */
+		public Builder&lt;G, C&gt; survivorsSelector(
+			final Selector&lt;G, C&gt; selector
+		) {
+<span class="fc" id="L937">			_survivorsSelector = requireNonNull(selector);</span>
+<span class="fc" id="L938">			return this;</span>
+		}
+
+		/**
+		 * The selector used for selecting the survivors and offspring
+		 * population. &lt;i&gt;Default values is set to
+		 * {@code TournamentSelector&lt;&gt;(3)}.&lt;/i&gt;
+		 *
+		 * @param selector used for selecting survivors and offspring population
+		 * @return {@code this} builder, for command chaining
+		 */
+		public Builder&lt;G, C&gt; selector(final Selector&lt;G, C&gt; selector) {
+<span class="nc" id="L950">			_offspringSelector = requireNonNull(selector);</span>
+<span class="nc" id="L951">			_survivorsSelector = requireNonNull(selector);</span>
+<span class="nc" id="L952">			return this;</span>
+		}
+
+		/**
+		 * The alterers used for alter the offspring population. &lt;i&gt;Default
+		 * values is set to {@code new SinglePointCrossover&lt;&gt;(0.2)} followed by
+		 * {@code new Mutator&lt;&gt;(0.15)}.&lt;/i&gt;
+		 *
+		 * @param first the first alterer used for alter the offspring
+		 *        population
+		 * @param rest the rest of the alterers used for alter the offspring
+		 *        population
+		 * @return {@code this} builder, for command chaining
+		 * @throws java.lang.NullPointerException if one of the alterers is
+		 *         {@code null}.
+		 */
+		@SafeVarargs
+		public final Builder&lt;G, C&gt; alterers(
+			final Alterer&lt;G, C&gt; first,
+			final Alterer&lt;G, C&gt;... rest
+		) {
+<span class="fc" id="L973">			requireNonNull(first);</span>
+<span class="fc" id="L974">			Stream.of(rest).forEach(Objects::requireNonNull);</span>
+
+<span class="pc bpc" id="L976" title="1 of 2 branches missed.">			_alterer = rest.length == 0 ?</span>
+				first :
+<span class="pc" id="L978">				Alterer.of(rest).compose(first);</span>
+
+<span class="fc" id="L980">			return this;</span>
+		}
+
+		/**
+		 * The phenotype validator used for detecting invalid individuals.
+		 * Alternatively it is also possible to set the genotype validator with
+		 * {@link #genotypeFactory(Factory)}, which will replace any
+		 * previously set phenotype validators.
+		 *
+		 * &lt;p&gt;&lt;i&gt;Default value is set to {@code Phenotype::isValid}.&lt;/i&gt;&lt;/p&gt;
+		 *
+		 * @since 3.1
+		 *
+		 * @see #genotypeValidator(Predicate)
+		 *
+		 * @param validator the {@code validator} used for validating the
+		 *        individuals (phenotypes).
+		 * @return {@code this} builder, for command chaining
+		 * @throws java.lang.NullPointerException if the {@code validator} is
+		 *         {@code null}.
+		 */
+		public Builder&lt;G, C&gt; phenotypeValidator(
+			final Predicate&lt;? super Phenotype&lt;G, C&gt;&gt; validator
+		) {
+<span class="fc" id="L1004">			_validator = requireNonNull(validator);</span>
+<span class="fc" id="L1005">			return this;</span>
+		}
+
+		/**
+		 * The genotype validator used for detecting invalid individuals.
+		 * Alternatively it is also possible to set the phenotype validator with
+		 * {@link #phenotypeValidator(Predicate)}, which will replace any
+		 * previously set genotype validators.
+		 *
+		 * &lt;p&gt;&lt;i&gt;Default value is set to {@code Genotype::isValid}.&lt;/i&gt;&lt;/p&gt;
+		 *
+		 * @since 3.1
+		 *
+		 * @see #phenotypeValidator(Predicate)
+		 *
+		 * @param validator the {@code validator} used for validating the
+		 *        individuals (genotypes).
+		 * @return {@code this} builder, for command chaining
+		 * @throws java.lang.NullPointerException if the {@code validator} is
+		 *         {@code null}.
+		 */
+		public Builder&lt;G, C&gt; genotypeValidator(
+			final Predicate&lt;? super Genotype&lt;G&gt;&gt; validator
+		) {
+<span class="fc" id="L1029">			requireNonNull(validator);</span>
+
+<span class="fc" id="L1031">			_validator = pt -&gt; validator.test(pt.getGenotype());</span>
+<span class="fc" id="L1032">			return this;</span>
+		}
+
+		/**
+		 * The optimization strategy used by the engine. &lt;i&gt;Default values is
+		 * set to {@code Optimize.MAXIMUM}.&lt;/i&gt;
+		 *
+		 * @param optimize the optimization strategy used by the engine
+		 * @return {@code this} builder, for command chaining
+		 */
+		public Builder&lt;G, C&gt; optimize(final Optimize optimize) {
+<span class="fc" id="L1043">			_optimize = requireNonNull(optimize);</span>
+<span class="fc" id="L1044">			return this;</span>
+		}
+
+		/**
+		 * The offspring fraction. &lt;i&gt;Default values is set to {@code 0.6}.&lt;/i&gt;
+		 *
+		 * @param fraction the offspring fraction
+		 * @return {@code this} builder, for command chaining
+		 * @throws java.lang.IllegalArgumentException if the fraction is not
+		 *         within the range [0, 1].
+		 */
+		public Builder&lt;G, C&gt; offspringFraction(final double fraction) {
+<span class="fc" id="L1056">			_offspringFraction = probability(fraction);</span>
+<span class="fc" id="L1057">			return this;</span>
+		}
+
+		/**
+		 * The number of individuals which form the population. &lt;i&gt;Default
+		 * values is set to {@code 50}.&lt;/i&gt;
+		 *
+		 * @param size the number of individuals of a population
+		 * @return {@code this} builder, for command chaining
+		 * @throws java.lang.IllegalArgumentException if {@code size &lt; 1}
+		 */
+		public Builder&lt;G, C&gt; populationSize(final int size) {
+<span class="pc bpc" id="L1069" title="1 of 2 branches missed.">			if (size &lt; 1) {</span>
+<span class="nc" id="L1070">				throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L1071">					&quot;Population size must be greater than zero, but was %s.&quot;, size</span>
+				));
+			}
+<span class="fc" id="L1074">			_populationSize = size;</span>
+<span class="fc" id="L1075">			return this;</span>
+		}
+
+		/**
+		 * The maximal allowed age of a phenotype. &lt;i&gt;Default values is set to
+		 * {@code 70}.&lt;/i&gt;
+		 *
+		 * @param age the maximal phenotype age
+		 * @return {@code this} builder, for command chaining
+		 * @throws java.lang.IllegalArgumentException if {@code age &lt; 1}
+		 */
+		public Builder&lt;G, C&gt; maximalPhenotypeAge(final long age) {
+<span class="pc bpc" id="L1087" title="1 of 2 branches missed.">			if (age &lt; 1) {</span>
+<span class="nc" id="L1088">				throw new IllegalArgumentException(format(</span>
+<span class="nc" id="L1089">					&quot;Phenotype age must be greater than one, but was %s.&quot;, age</span>
+				));
+			}
+<span class="fc" id="L1092">			_maximalPhenotypeAge = age;</span>
+<span class="fc" id="L1093">			return this;</span>
+		}
+
+		/**
+		 * The executor used by the engine.
+		 *
+		 * @param executor the executor used by the engine
+		 * @return {@code this} builder, for command chaining
+		 */
+		public Builder&lt;G, C&gt; executor(final Executor executor) {
+<span class="nc" id="L1103">			_executor = requireNonNull(executor);</span>
+<span class="nc" id="L1104">			return this;</span>
+		}
+
+		/**
+		 * The clock used for calculating the execution durations.
+		 *
+		 * @param clock the clock used for calculating the execution durations
+		 * @return {@code this} builder, for command chaining
+		 */
+		public Builder&lt;G, C&gt; clock(final Clock clock) {
+<span class="nc" id="L1114">			_clock = requireNonNull(clock);</span>
+<span class="nc" id="L1115">			return this;</span>
+		}
+
+		/**
+		 * The maximal number of attempt before the {@code Engine} gives up
+		 * creating a valid individual ({@code Phenotype}). &lt;i&gt;Default values is
+		 * set to {@code 10}.&lt;/i&gt;
+		 *
+		 * @since 3.1
+		 *
+		 * @param retries the maximal retry count
+		 * @throws IllegalArgumentException if the given retry {@code count} is
+		 *         smaller than zero.
+		 * @return {@code this} builder, for command chaining
+		 */
+		public Builder&lt;G, C&gt; individualCreationRetries(final int retries) {
+<span class="nc bnc" id="L1131" title="All 2 branches missed.">			if (retries &lt; 0) {</span>
+<span class="nc" id="L1132">				throw new IllegalArgumentException(format(</span>
+					&quot;Retry count must not be negative: %d&quot;,
+<span class="nc" id="L1134">					retries</span>
+				));
+			}
+<span class="nc" id="L1137">			_individualCreationRetries = retries;</span>
+<span class="nc" id="L1138">			return this;</span>
+		}
+
+		/**
+		 * Builds an new {@code Engine} instance from the set properties.
+		 *
+		 * @return an new {@code Engine} instance from the set properties
+		 */
+		public Engine&lt;G, C&gt; build() {
+<span class="fc" id="L1147">			return new Engine&lt;&gt;(</span>
+				_fitnessFunction,
+				_fitnessScaler,
+				_genotypeFactory,
+				_survivorsSelector,
+				_offspringSelector,
+				_alterer,
+				_validator,
+				_optimize,
+<span class="fc" id="L1156">				getOffspringCount(),</span>
+<span class="fc" id="L1157">				getSurvivorsCount(),</span>
+				_maximalPhenotypeAge,
+				_executor,
+				_clock,
+				_individualCreationRetries
+			);
+		}
+
+		private int getSurvivorsCount() {
+<span class="fc" id="L1166">			return _populationSize - getOffspringCount();</span>
+		}
+
+		private int getOffspringCount() {
+<span class="fc" id="L1170">			return (int)round(_offspringFraction*_populationSize);</span>
+		}
+
+		/**
+		 * Return the used {@link Alterer} of the GA.
+		 *
+		 * @return the used {@link Alterer} of the GA.
+		 */
+		public Alterer&lt;G, C&gt; getAlterers() {
+<span class="nc" id="L1179">			return _alterer;</span>
+		}
+
+		/**
+		 * Return the {@link Clock} the engine is using for measuring the execution
+		 * time.
+		 *
+		 * @since 3.1
+		 *
+		 * @return the clock used for measuring the execution time
+		 */
+		public Clock getClock() {
+<span class="nc" id="L1191">			return _clock;</span>
+		}
+
+		/**
+		 * Return the {@link Executor} the engine is using for executing the
+		 * evolution steps.
+		 *
+		 * @since 3.1
+		 *
+		 * @return the executor used for performing the evolution steps
+		 */
+		public Executor getExecutor() {
+<span class="nc" id="L1203">			return _executor;</span>
+		}
+
+		/**
+		 * Return the fitness function of the GA engine.
+		 *
+		 * @since 3.1
+		 *
+		 * @return the fitness function
+		 */
+		public Function&lt;? super Genotype&lt;G&gt;, ? extends C&gt; getFitnessFunction() {
+<span class="nc" id="L1214">			return _fitnessFunction;</span>
+		}
+
+		/**
+		 * Return the fitness scaler of the GA engine.
+		 *
+		 * @since 3.1
+		 *
+		 * @return the fitness scaler
+		 */
+		public Function&lt;? super C, ? extends C&gt; getFitnessScaler() {
+<span class="nc" id="L1225">			return _fitnessScaler;</span>
+		}
+
+		/**
+		 * Return the used genotype {@link Factory} of the GA. The genotype factory
+		 * is used for creating the initial population and new, random individuals
+		 * when needed (as replacement for invalid and/or died genotypes).
+		 *
+		 * @since 3.1
+		 *
+		 * @return the used genotype {@link Factory} of the GA.
+		 */
+		public Factory&lt;Genotype&lt;G&gt;&gt; getGenotypeFactory() {
+<span class="nc" id="L1238">			return _genotypeFactory;</span>
+		}
+
+		/**
+		 * Return the maximal allowed phenotype age.
+		 *
+		 * @since 3.1
+		 *
+		 * @return the maximal allowed phenotype age
+		 */
+		public long getMaximalPhenotypeAge() {
+<span class="nc" id="L1249">			return _maximalPhenotypeAge;</span>
+		}
+
+		/**
+		 * Return the offspring fraction.
+		 *
+		 * @return the offspring fraction.
+		 */
+		public double getOffspringFraction() {
+<span class="nc" id="L1258">			return _offspringFraction;</span>
+		}
+
+		/**
+		 * Return the used offspring {@link Selector} of the GA.
+		 *
+		 * @since 3.1
+		 *
+		 * @return the used offspring {@link Selector} of the GA.
+		 */
+		public Selector&lt;G, C&gt; getOffspringSelector() {
+<span class="nc" id="L1269">			return _offspringSelector;</span>
+		}
+
+		/**
+		 * Return the used survivor {@link Selector} of the GA.
+		 *
+		 * @since 3.1
+		 *
+		 * @return the used survivor {@link Selector} of the GA.
+		 */
+		public Selector&lt;G, C&gt; getSurvivorsSelector() {
+<span class="nc" id="L1280">			return _survivorsSelector;</span>
+		}
+
+		/**
+		 * Return the optimization strategy.
+		 *
+		 * @since 3.1
+		 *
+		 * @return the optimization strategy
+		 */
+		public Optimize getOptimize() {
+<span class="nc" id="L1291">			return _optimize;</span>
+		}
+
+		/**
+		 * Return the number of individuals of a population.
+		 *
+		 * @since 3.1
+		 *
+		 * @return the number of individuals of a population
+		 */
+		public int getPopulationSize() {
+<span class="nc" id="L1302">			return _populationSize;</span>
+		}
+
+		/**
+		 * Return the maximal number of attempt before the {@code Engine} gives
+		 * up creating a valid individual ({@code Phenotype}).
+		 *
+		 * @since 3.1
+		 *
+		 * @return the maximal number of {@code Phenotype} creation attempts
+		 */
+		public int getIndividualCreationRetries() {
+<span class="nc" id="L1314">			return _individualCreationRetries;</span>
+		}
+
+		/**
+		 * Create a new builder, with the current configuration.
+		 *
+		 * @since 3.1
+		 *
+		 * @return a new builder, with the current configuration
+		 */
+		@Override
+		public Builder&lt;G, C&gt; copy() {
+<span class="nc" id="L1326">			return new Builder&lt;&gt;(_genotypeFactory, _fitnessFunction)</span>
+<span class="nc" id="L1327">				.alterers(_alterer)</span>
+<span class="nc" id="L1328">				.clock(_clock)</span>
+<span class="nc" id="L1329">				.executor(_executor)</span>
+<span class="nc" id="L1330">				.fitnessScaler(_fitnessScaler)</span>
+<span class="nc" id="L1331">				.maximalPhenotypeAge(_maximalPhenotypeAge)</span>
+<span class="nc" id="L1332">				.offspringFraction(_offspringFraction)</span>
+<span class="nc" id="L1333">				.offspringSelector(_offspringSelector)</span>
+<span class="nc" id="L1334">				.phenotypeValidator(_validator)</span>
+<span class="nc" id="L1335">				.optimize(_optimize)</span>
+<span class="nc" id="L1336">				.populationSize(_populationSize)</span>
+<span class="nc" id="L1337">				.survivorsSelector(_survivorsSelector)</span>
+<span class="nc" id="L1338">				.individualCreationRetries(_individualCreationRetries);</span>
+		}
+
+	}
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>

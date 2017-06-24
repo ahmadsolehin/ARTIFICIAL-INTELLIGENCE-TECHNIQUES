@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../.resources/report.css" type="text/css"/><link rel="shortcut icon" href="../.resources/report.gif" type="image/gif"/><title>Concurrency.java</title><link rel="stylesheet" href="../.resources/prettify.css" type="text/css"/><script type="text/javascript" src="../.resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../.sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">org.jenetics</a> &gt; <a href="index.source.html" class="el_package">org.jenetics.internal.util</a> &gt; <span class="el_source">Concurrency.java</span></div><h1>Concurrency.java</h1><pre class="source lang-java linenums">/*
+ * Java Genetic Algorithm Library (@__identifier__@).
+ * Copyright (c) @__year__@ Franz Wilhelmstötter
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author:
+ *    Franz Wilhelmstötter (franz.wilhelmstoetter@gmx.at)
+ */
+package org.jenetics.internal.util;
+
+import static java.util.Objects.requireNonNull;
+
+import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
+
+import org.jenetics.internal.collection.Stack;
+
+/**
+ * @author &lt;a href=&quot;mailto:franz.wilhelmstoetter@gmx.at&quot;&gt;Franz Wilhelmstötter&lt;/a&gt;
+ * @version 2.0
+ * @since 2.0
+ */
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">public abstract class Concurrency implements Executor, AutoCloseable {</span>
+
+<span class="fc" id="L43">	public static final int CORES = Runtime.getRuntime().availableProcessors();</span>
+
+<span class="fc" id="L45">	public static final Concurrency SERIAL_EXECUTOR = new SerialConcurrency();</span>
+
+	public abstract void execute(final List&lt;? extends Runnable&gt; runnables);
+
+	@Override
+	public abstract void close();
+
+	/**
+	 * Return the underlying {@code Executor}, which is used for performing the
+	 * actual task execution.
+	 *
+	 * @return the underlying {@code Executor} object
+	 */
+	public Executor getInnerExecutor() {
+<span class="nc" id="L59">		return this;</span>
+	}
+
+	/**
+	 * Return an new Concurrency object from the given executor.
+	 *
+	 * @param executor the underlying Executor
+	 * @return a new Concurrency object
+	 */
+	public static Concurrency with(final Executor executor) {
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">		if (executor instanceof ForkJoinPool) {</span>
+<span class="fc" id="L70">			return new ForkJoinPoolConcurrency((ForkJoinPool)executor);</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">		} else if (executor instanceof ExecutorService) {</span>
+<span class="nc" id="L72">			return new ExecutorServiceConcurrency((ExecutorService)executor);</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">		} else if (executor == SERIAL_EXECUTOR) {</span>
+<span class="nc" id="L74">			return SERIAL_EXECUTOR;</span>
+		} else {
+<span class="nc" id="L76">			return new ExecutorConcurrency(executor);</span>
+		}
+	}
+
+	/**
+	 * Return a new Concurrency object using the common ForkJoinPool.
+	 *
+	 * @return a new Concurrency object using the new ForkJoinPool
+	 */
+	public static Concurrency withCommonPool() {
+<span class="fc" id="L86">		return with(ForkJoinPool.commonPool());</span>
+	}
+
+
+	/**
+	 * This Concurrency uses a ForkJoinPool.
+	 */
+	private static final class ForkJoinPoolConcurrency extends Concurrency {
+<span class="fc" id="L94">		private final Stack&lt;ForkJoinTask&lt;?&gt;&gt; _tasks = new Stack&lt;&gt;();</span>
+		private final ForkJoinPool _pool;
+
+<span class="fc" id="L97">		ForkJoinPoolConcurrency(final ForkJoinPool pool) {</span>
+<span class="fc" id="L98">			_pool = requireNonNull(pool);</span>
+<span class="fc" id="L99">		}</span>
+
+		@Override
+		public void execute(final Runnable runnable) {
+<span class="fc" id="L103">			_tasks.push(_pool.submit(runnable));</span>
+<span class="fc" id="L104">		}</span>
+
+		@Override
+		public void execute(final List&lt;? extends Runnable&gt; runnables) {
+<span class="fc" id="L108">			_tasks.push(_pool.submit(new RunnablesAction(runnables)));</span>
+<span class="fc" id="L109">		}</span>
+
+		@Override
+		public Executor getInnerExecutor() {
+<span class="nc" id="L113">			return _pool;</span>
+		}
+
+		@Override
+		public void close() {
+<span class="fc bfc" id="L118" title="All 2 branches covered.">			for (ForkJoinTask&lt;?&gt; t = _tasks.pop(); t != null; t = _tasks.pop()) {</span>
+<span class="fc" id="L119">				t.join();</span>
+			}
+<span class="fc" id="L121">		}</span>
+	}
+
+	/**
+	 * This Concurrency uses an ExecutorService.
+	 */
+	private static final class ExecutorServiceConcurrency extends Concurrency {
+<span class="nc" id="L128">		private final Stack&lt;Future&lt;?&gt;&gt; _futures = new Stack&lt;&gt;();</span>
+		private final ExecutorService _service;
+
+<span class="nc" id="L131">		ExecutorServiceConcurrency(final ExecutorService service) {</span>
+<span class="nc" id="L132">			_service = requireNonNull(service);</span>
+<span class="nc" id="L133">		}</span>
+
+		@Override
+		public void execute(final Runnable command) {
+<span class="nc" id="L137">			_futures.push(_service.submit(command));</span>
+<span class="nc" id="L138">		}</span>
+
+		@Override
+		public void execute(final List&lt;? extends Runnable&gt; runnables) {
+<span class="nc" id="L142">			final int[] parts = partition(runnables.size(), CORES + 1);</span>
+<span class="nc bnc" id="L143" title="All 2 branches missed.">			for (int i = 0; i &lt; parts.length - 1; ++i) {</span>
+<span class="nc" id="L144">				execute(new RunnablesRunnable(runnables, parts[i], parts[i + 1]));</span>
+			}
+<span class="nc" id="L146">		}</span>
+
+		@Override
+		public Executor getInnerExecutor() {
+<span class="nc" id="L150">			return _service;</span>
+		}
+
+		@Override
+		public void close() {
+			try {
+<span class="nc bnc" id="L156" title="All 2 branches missed.">				for (Future&lt;?&gt; f = _futures.pop(); f != null; f = _futures.pop()) {</span>
+<span class="nc" id="L157">					f.get();</span>
+				}
+<span class="nc" id="L159">			} catch (InterruptedException|ExecutionException e) {</span>
+<span class="nc" id="L160">				final String msg = e.getMessage();</span>
+<span class="nc" id="L161">				throw (CancellationException)new CancellationException(msg)</span>
+<span class="nc" id="L162">					.initCause(e);</span>
+<span class="nc" id="L163">			}</span>
+<span class="nc" id="L164">		}</span>
+	}
+
+	/**
+	 * This Concurrency uses an Executor.
+	 */
+	private static final class ExecutorConcurrency extends Concurrency {
+<span class="nc" id="L171">		private final Stack&lt;FutureTask&lt;?&gt;&gt; _tasks = new Stack&lt;&gt;();</span>
+		private final Executor _executor;
+
+<span class="nc" id="L174">		ExecutorConcurrency(final Executor executor) {</span>
+<span class="nc" id="L175">			_executor = requireNonNull(executor);</span>
+<span class="nc" id="L176">		}</span>
+
+		@Override
+		public void execute(final Runnable command) {
+<span class="nc" id="L180">			final FutureTask&lt;?&gt; task = new FutureTask&lt;&gt;(command, null);</span>
+<span class="nc" id="L181">			_tasks.push(task);</span>
+<span class="nc" id="L182">			_executor.execute(task);</span>
+<span class="nc" id="L183">		}</span>
+
+		@Override
+		public void execute(final List&lt;? extends Runnable&gt; runnables) {
+<span class="nc" id="L187">			final int[] parts = partition(runnables.size(), CORES + 1);</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">			for (int i = 0; i &lt; parts.length - 1; ++i) {</span>
+<span class="nc" id="L189">				execute(new RunnablesRunnable(runnables, parts[i], parts[i + 1]));</span>
+			}
+<span class="nc" id="L191">		}</span>
+
+		@Override
+		public void close() {
+			try {
+<span class="nc bnc" id="L196" title="All 2 branches missed.">				for (FutureTask&lt;?&gt; t = _tasks.pop(); t != null; t = _tasks.pop()) {</span>
+<span class="nc" id="L197">					t.get();</span>
+				}
+<span class="nc" id="L199">			} catch (InterruptedException|ExecutionException e) {</span>
+<span class="nc" id="L200">				final String msg = e.getMessage();</span>
+<span class="nc" id="L201">				throw (CancellationException)new CancellationException(msg)</span>
+<span class="nc" id="L202">					.initCause(e);</span>
+<span class="nc" id="L203">			}</span>
+<span class="nc" id="L204">		}</span>
+	}
+
+	/**
+	 * This Concurrency executes the runnables within the main thread.
+	 */
+<span class="fc" id="L210">	private static final class SerialConcurrency extends Concurrency {</span>
+
+		@Override
+		public void execute(final Runnable command) {
+<span class="nc" id="L214">			command.run();</span>
+<span class="nc" id="L215">		}</span>
+
+		@Override
+		public void execute(final List&lt;? extends Runnable&gt; runnables) {
+<span class="nc bnc" id="L219" title="All 2 branches missed.">			for (final Runnable runnable : runnables) {</span>
+<span class="nc" id="L220">				runnable.run();</span>
+<span class="nc" id="L221">			}</span>
+<span class="nc" id="L222">		}</span>
+
+		@Override
+		public void close() {
+<span class="nc" id="L226">		}</span>
+	}
+
+
+	/**
+	 * Return a array with the indexes of the partitions of an array with the
+	 * given size. The length of the returned array is {@code min(size, prts) + 1}.
+	 * &lt;p&gt;
+	 * Some examples:
+	 * &lt;pre&gt;
+	 * 	 partition(10, 3): [0, 3, 6, 10]
+	 * 	 partition(15, 6): [0, 2, 4, 6, 9, 12, 15]
+	 * 	 partition(5, 10): [0, 1, 2, 3, 4, 5]
+	 * &lt;/pre&gt;
+	 *
+	 * The following examples prints the start index (inclusive) and the end
+	 * index (exclusive) of the {@code partition(15, 6)}.
+	 * &lt;pre&gt;{@code
+	 * int[] parts = partition(15, 6);
+	 * for (int i = 0; i &lt; parts.length - 1; ++i) {
+	 *     System.out.println(i + &quot;: &quot; + parts[i] + &quot;\t&quot; + parts[i + 1]);
+	 * }
+	 * }&lt;/pre&gt;
+	 * &lt;pre&gt;
+	 * 	 0: 0 	2
+	 * 	 1: 2 	4
+	 * 	 2: 4 	6
+	 * 	 3: 6 	9
+	 * 	 4: 9 	12
+	 * 	 5: 12	15
+	 * &lt;/pre&gt;
+	 *
+	 * This example shows how this can be used in an concurrent environment:
+	 * &lt;pre&gt;{@code
+	 * try (final Concurrency c = Concurrency.start()) {
+	 *     final int[] parts = arrays.partition(population.size(), _maxThreads);
+	 *
+	 *     for (int i = 0; i &lt; parts.length - 1; ++i) {
+	 *         final int part = i;
+	 *         c.execute(new Runnable() { @Override public void run() {
+	 *             for (int j = parts[part + 1]; --j &lt;= parts[part];) {
+	 *                 population.get(j).evaluate();
+	 *             }
+	 *         }});
+	 *     }
+	 * }
+	 * }&lt;/pre&gt;
+	 *
+	 * @param size the size of the array to partition.
+	 * @param parts the number of parts the (virtual) array should be partitioned.
+	 * @return the partition array with the length of {@code min(size, parts) + 1}.
+	 * @throws IllegalArgumentException if {@code size} or {@code p} is less than one.
+	 */
+	private static int[] partition(final int size, final int parts) {
+<span class="nc bnc" id="L280" title="All 2 branches missed.">		if (size &lt; 1) {</span>
+<span class="nc" id="L281">			throw new IllegalArgumentException(</span>
+				&quot;Size must greater than zero: &quot; + size
+			);
+		}
+<span class="nc bnc" id="L285" title="All 2 branches missed.">		if (parts &lt; 1) {</span>
+<span class="nc" id="L286">			throw new IllegalArgumentException(</span>
+				&quot;Number of partitions must greater than zero: &quot; + parts
+			);
+		}
+
+<span class="nc" id="L291">		final int pts = Math.min(size, parts);</span>
+<span class="nc" id="L292">		final int[] partition = new int[pts + 1];</span>
+
+<span class="nc" id="L294">		final int bulk = size/pts;</span>
+<span class="nc" id="L295">		final int rest = size%pts;</span>
+<span class="nc bnc" id="L296" title="All 4 branches missed.">		assert (bulk*pts + rest) == size;</span>
+
+<span class="nc bnc" id="L298" title="All 2 branches missed.">		for (int i = 0, n = pts - rest; i &lt; n; ++i) {</span>
+<span class="nc" id="L299">			partition[i] = i*bulk;</span>
+		}
+<span class="nc bnc" id="L301" title="All 2 branches missed.">		for (int i = 0, n = rest + 1; i &lt; n; ++i) {</span>
+<span class="nc" id="L302">			partition[pts - rest + i] = (pts - rest)*bulk + i*(bulk + 1);</span>
+		}
+
+<span class="nc" id="L305">		return partition;</span>
+	}
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.eclemma.org/jacoco">JaCoCo</a> 0.7.1.201405082137</span></div></body></html>
